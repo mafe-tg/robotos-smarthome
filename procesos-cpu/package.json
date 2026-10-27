@@ -1,0 +1,12 @@
+{
+  "name": "robotos-procesos-cpu",
+  "version": "0.1.0",
+  "description": "Módulo Procesos y CPU de RobotOS SmartHome (lógica sin base de datos ni interfaz)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "demo": "node src/index.js",
+    "web": "node server.js",
+    "test": "node --test"
+  }
+}

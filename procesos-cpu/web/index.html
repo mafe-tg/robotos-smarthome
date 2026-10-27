@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d1d">
+  <title>RobotOS · Centro de control</title>
+  <link rel="stylesheet" href="/web/estilos.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#inicio" aria-label="RobotOS inicio">
+        <span class="brand-mark">R</span><span class="brand-copy"><strong>RobotOS <small>V2.4</small></strong><span>SmartHome OS Prototype</span></span>
+      </a>
+      <div class="side-label">SUBSISTEMAS DEL ROBOT</div>
+      <nav class="side-nav" aria-label="Navegación principal">
+        <a class="nav-link active" href="#inicio"><span class="nav-icon">▦</span><span><strong>Centro de Control</strong><small>Telemetría y KPIs</small></span></a>
+        <a class="nav-link" href="#titulo-procesos"><span class="nav-icon">◈</span><span><strong>Procesos & Scheduler</strong><small>Gantt y estados</small></span></a>
+        <a class="nav-link" href="#titulo-simulacion"><span class="nav-icon">▤</span><span><strong>Memoria & Archivos</strong><small>Bloques y VFS</small></span></a>
+        <a class="nav-link" href="#titulo-cpu"><span class="nav-icon">ϟ</span><span><strong>Dispositivos domóticos</strong><small>Sensores y actuadores</small></span></a>
+        <a class="nav-link" href="#mensaje"><span class="nav-icon">△</span><span><strong>Logs, Alertas & Test</strong><small>Diagnóstico y sandbox</small></span></a>
+      </nav>
+      <div class="sidebar-bottom"><a class="nav-link" href="#titulo-crear"><span class="nav-icon">⇥</span><span><strong>Autenticación</strong><small>Supabase Auth & Roles</small></span></a><div class="role-box"><span>Rol activo:</span><b>ADMIN</b></div></div>
+    </aside>
+
+    <div class="workspace" id="inicio">
+      <header class="topbar">
+        <div class="system-status"><span class="live-dot"></span><strong>RobotOS</strong><b>OPERATIVO</b></div>
+        <div class="top-metrics"><span>CPU: <b id="top-cpu">0%</b></span><span>BATERÍA: <b>84% (115W)</b></span></div>
+        <div class="topbar-right"><button class="icon-button" aria-label="Notificaciones">♧<i></i></button><span class="role-pill">ROL: <b>ADMIN⌄</b></span><div class="operator"><strong>Operador Admin</strong><small>admin@robotos.local</small></div><button class="logout" type="button">Salir</button></div>
+      </header>
+
+      <main class="pagina">
+        <header class="page-heading cabecera">
+          <div><div class="eyebrow">SMART HOME / SISTEMA OPERATIVO</div><h1>Centro de Control</h1><p>Telemetría de procesos y supervisión del ecosistema doméstico.</p></div>
+          <div class="sync-pill"><span></span> SINCRONIZADO CON KERNEL</div>
+        </header>
+
+        <p id="mensaje" class="mensaje" role="status" aria-live="polite">Crea un proceso o carga los de ejemplo para empezar.</p>
+
+        <section class="kpi-grid" aria-label="Resumen del sistema">
+          <article class="kpi-card cpu-card"><div class="kpi-top"><span>USO DE CPU</span><span class="kpi-icon">▧</span></div><div class="kpi-value"><strong id="kpi-cpu">0%</strong><span>1 CPU virtual</span></div><div class="kpi-foot"><span>Uso de capacidad</span><b id="kpi-cpu-label">0%</b></div><div class="mini-bar"><span id="kpi-cpu-bar"></span></div></article>
+          <article class="kpi-card process-card"><div class="kpi-top"><span>PROCESOS ACTIVOS</span><span class="kpi-icon">◈</span></div><div class="kpi-value"><strong id="kpi-processes">0</strong><span>procesos registrados</span></div><div class="kpi-foot"><span>En ejecución</span><b id="kpi-running">0</b></div><div class="mini-bar"><span id="kpi-process-bar"></span></div></article>
+          <article class="kpi-card memory-card"><div class="kpi-top"><span>MEMORIA ASIGNADA</span><span class="kpi-icon">▤</span></div><div class="kpi-value"><strong id="kpi-memory">0 MB</strong><span>estimación de procesos</span></div><div class="kpi-foot"><span>Referencia</span><b>1024 MB</b></div><div class="mini-bar"><span id="kpi-memory-bar"></span></div></article>
+          <article class="kpi-card battery-card"><div class="kpi-top"><span>ENERGÍA & BATERÍA</span><span class="kpi-icon">ϟ</span></div><div class="kpi-value"><strong>84%</strong><span>115 W consumo</span></div><div class="kpi-foot"><span>Estado de alimentación</span><b>ESTABLE</b></div><div class="mini-bar"><span style="width:84%"></span></div></article>
+        </section>
+
+        <div class="disposicion">
+          <aside class="lateral">
+            <section class="panel create-panel" aria-labelledby="titulo-crear"><div class="section-heading"><div><span class="eyebrow">GESTIÓN</span><h2 id="titulo-crear">Crear proceso</h2></div><span class="heading-icon">＋</span></div>
+              <form id="formulario" class="formulario">
+                <label for="nombre">Nombre del proceso</label><input id="nombre" name="nombre" type="text" required placeholder="Ej. Vigilancia">
+                <div class="form-row"><div><label for="prioridad">Prioridad</label><input id="prioridad" name="prioridad" type="number" min="1" step="1" value="3" required><small>1 = urgente</small></div><div><label for="memoria">Memoria (MB)</label><input id="memoria" name="memoria" type="number" min="0" step="1" value="64" required></div></div>
+                <div class="form-row"><div><label for="cpu">CPU requerida (%)</label><input id="cpu" name="cpu" type="number" min="0" max="100" step="1" value="10" required></div><div><label for="tiempo">Tiempo (ticks)</label><input id="tiempo" name="tiempo" type="number" min="1" step="1" value="3" required></div></div>
+                <button type="submit" class="boton boton-principal"><span>＋</span> Crear proceso</button>
+              </form>
+              <div class="fila-botones"><button type="button" id="btn-ejemplo" class="boton">Cargar ejemplos</button><button type="button" id="btn-vaciar" class="boton">Vaciar todo</button></div>
+            </section>
+            <section class="panel cpu-live" aria-labelledby="titulo-cpu"><div class="section-heading"><div><span class="eyebrow">RENDIMIENTO</span><h2 id="titulo-cpu">CPU ahora</h2></div><span class="live-tag"><i></i> LIVE</span></div><div class="cpu-live-number" id="cpu-texto">La CPU está libre.</div><div id="cpu-barra" class="barra" role="meter" aria-label="CPU en uso" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="cpu-relleno"></span></div><ul id="conteos" class="conteos" aria-label="Cantidad de procesos por estado"></ul></section>
+          </aside>
+
+          <main class="principal">
+            <section class="panel process-panel" aria-labelledby="titulo-procesos"><div class="section-heading"><div><span class="eyebrow">MONITOREO DEL SISTEMA</span><h2 id="titulo-procesos">Procesos de RobotOS</h2><p class="section-subtitle">Control de tareas, prioridad y estados en tiempo real.</p></div><span class="panel-count">PID / STATUS</span></div>
+              <p id="vacio" class="vacio">Aún no hay procesos. Crea uno con el formulario o carga los de ejemplo.</p><div class="desplazable" id="contenedor-tabla"><table class="tabla"><caption class="solo-lectores">Lista de procesos con su estado y las acciones disponibles</caption><thead><tr><th scope="col">PID</th><th scope="col">Nombre</th><th scope="col">Prioridad</th><th scope="col">Memoria</th><th scope="col">CPU</th><th scope="col">Tiempo restante</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead><tbody id="tabla-cuerpo"></tbody></table></div>
+            </section>
+            <section class="panel simulation-panel" aria-labelledby="titulo-simulacion"><div class="section-heading"><div><span class="eyebrow">PLANIFICADOR</span><h2 id="titulo-simulacion">Simular la CPU</h2><p class="section-subtitle">Compara cómo el scheduler distribuye el tiempo de procesador.</p></div><span class="heading-icon">⌁</span></div><p class="ayuda">La simulación trabaja sobre copias de los procesos en NEW o READY. No modifica los estados de la tabla principal.</p><div class="fila-controles"><div class="campo"><label for="algoritmo">Algoritmo de planificación</label><select id="algoritmo"><option value="PRIORIDAD">Prioridad</option><option value="ROUND_ROBIN">Round Robin</option></select></div><div class="campo"><label for="quantum">Quantum (ticks por turno)</label><input id="quantum" type="number" min="1" step="1" value="2" disabled></div><button type="button" id="btn-simular" class="boton boton-principal">▶ Ejecutar simulación</button></div>
+              <div id="resultado" hidden><p id="resumen" class="resumen"></p><h3>Línea de tiempo</h3><p class="ayuda">Cada fila representa un proceso y cada columna un tick de CPU.</p><div class="desplazable timeline-wrap" id="contenedor-linea"></div><h3>Resultados por proceso</h3><div class="desplazable"><table class="tabla" id="tabla-metricas"></table></div><p id="omitidos" class="ayuda" hidden></p></div>
+            </section>
+          </main>
+        </div>
+        <footer class="page-footer"><span><i class="live-dot"></i> RobotOS system monitor</span><span>Prototipo local · Los datos se reinician al recargar</span></footer>
+      </main>
+    </div>
+  </div>
+  <script type="module" src="/web/app.js"></script>
+  <script>
+    // El selector visual conserva la navegación por secciones de esta demo.
+    document.querySelectorAll('.side-nav .nav-link').forEach(link => link.addEventListener('click', () => {
+      document.querySelectorAll('.side-nav .nav-link').forEach(item => item.classList.remove('active'));
+      link.classList.add('active');
+    }));
+    document.querySelector('.logout')?.addEventListener('click', () => {
+      const msg = document.getElementById('mensaje');
+      msg.textContent = 'La sesión es una vista de demostración; no hay autenticación conectada.';
+    });
+  </script>
+</body>
+</html>
