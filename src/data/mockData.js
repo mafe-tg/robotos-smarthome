@@ -1,5 +1,21 @@
 // Datos iniciales de simulación para RobotOS SmartHome
 
+// Equivalencia oficial de prioridades solicitada:
+// Crítica = 1, Alta = 2, Media = 3, Baja = 4
+export const PRIORITY_MAP = {
+  'Crítica': 1,
+  'Alta': 2,
+  'Media': 3,
+  'Baja': 4,
+};
+
+export const PRIORITY_LABEL = {
+  1: 'Crítica',
+  2: 'Alta',
+  3: 'Media',
+  4: 'Baja',
+};
+
 export const INITIAL_PROCESSES = [
   {
     id: 'p1',
@@ -7,9 +23,11 @@ export const INITIAL_PROCESSES = [
     name: 'lighting_daemon',
     state: 'RUNNING', // NEW, READY, RUNNING, WAITING, TERMINATED
     priority: 'Alta',
+    prioridadNum: 2,
     cpu: 8,
     memoryBlocks: 6, // 6 bloques de 16MB = 96MB
     memory: 96,
+    tiempoTotal: 4, // Duración en ticks para el scheduler
     color: '#10B981',
     isSystem: true,
     description: 'Control y temporización de iluminación en todo el hogar',
@@ -20,9 +38,11 @@ export const INITIAL_PROCESSES = [
     name: 'temp_manager',
     state: 'READY',
     priority: 'Media',
+    prioridadNum: 3,
     cpu: 3,
     memoryBlocks: 4, // 64MB
     memory: 64,
+    tiempoTotal: 5,
     color: '#F59E0B',
     isSystem: true,
     description: 'Monitoreo de termostatos y control HVAC',
@@ -33,9 +53,11 @@ export const INITIAL_PROCESSES = [
     name: 'surveillance_proc',
     state: 'READY',
     priority: 'Media',
+    prioridadNum: 3,
     cpu: 18,
     memoryBlocks: 8, // 128MB
     memory: 128,
+    tiempoTotal: 6,
     color: '#3B82F6',
     isSystem: true,
     description: 'Detección perimetral y procesamiento de capturas',
@@ -46,9 +68,11 @@ export const INITIAL_PROCESSES = [
     name: 'routine_engine',
     state: 'RUNNING',
     priority: 'Media',
+    prioridadNum: 3,
     cpu: 6,
     memoryBlocks: 3, // 48MB
     memory: 48,
+    tiempoTotal: 3,
     color: '#06B6D4',
     isSystem: true,
     description: 'Ejecutor de reglas y automatizaciones cronometradas',
@@ -59,9 +83,11 @@ export const INITIAL_PROCESSES = [
     name: 'energy_monitor',
     state: 'READY',
     priority: 'Baja',
+    prioridadNum: 4,
     cpu: 2,
     memoryBlocks: 2, // 32MB
     memory: 32,
+    tiempoTotal: 4,
     color: '#8B5CF6',
     isSystem: true,
     description: 'Telemetría de consumo eléctrico y nivel de batería',
@@ -72,9 +98,11 @@ export const INITIAL_PROCESSES = [
     name: 'lock_guard',
     state: 'WAITING',
     priority: 'Crítica',
+    prioridadNum: 1,
     cpu: 1,
     memoryBlocks: 2, // 32MB
     memory: 32,
+    tiempoTotal: 2,
     color: '#EC4899',
     isSystem: true,
     description: 'Validación de seguros biométricos y cerrojos',

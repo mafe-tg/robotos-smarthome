@@ -6,7 +6,12 @@ import {
   INITIAL_DEVICES,
   INITIAL_LOGS,
   INITIAL_ALERTS,
+  PRIORITY_MAP,
+  PRIORITY_LABEL,
 } from '../data/mockData';
+
+// Importación directa de la máquina de estados oficial de la integrante 1
+import { ESTADOS, TRANSICIONES_PERMITIDAS } from '../../procesos-cpu/src/proceso.js';
 
 const SystemContext = createContext();
 
@@ -107,14 +112,21 @@ export const SystemProvider = ({ children }) => {
 
   /**
    * Crear proceso:
-   * 1. Verifica si hay bloques de memoria suficientes.
-   * 2. Si no hay, emite alerta de memoria insuficiente y registra en logs sin crearlo.
-   * 3. Si hay, asigna los bloques requeridos, genera PID y arranca en estado NEW.
+   * 1. Verifica memoria disponible.
+   * 2. Inicia en estado NEW y requiere tiempoTotal (duración en ticks).
+   * 3. Asigna PID correlativo y mapea prioridad numérica.
    */
-  const createProcess = ({ name, priority = 'Media', memoryBlocksCount = 2, cpu = 5 }) => {
+  const createProcess = ({
+    name,
+    priority = 'Media',
+    memoryBlocksCount = 2,
+    cpu = 5,
+    tiempoTotal = 4,
+  }) => {
     const requestedBlocks = Number(memoryBlocksCount);
     const availableBlocks = memoryBlocks.filter((b) => b.state === 'FREE').length;
     const cleanName = name.trim().toLowerCase().replace(/\s+/g, '_');
+    const ticks = Math.max(1, Number(tiempoTotal) || 4);
 
     // Validación de memoria suficiente
     if (requestedBlocks > availableBlocks) {
@@ -133,11 +145,10 @@ export const SystemProvider = ({ children }) => {
       return { success: false, reason: 'MEM_INSUFFICIENT' };
     }
 
-    // Paleta de colores para procesos de usuario
     const userColors = ['#06B6D4', '#3B82F6', '#8B5CF6', '#10B981', '#EC4899', '#F97316'];
     const chosenColor = userColors[Math.floor(Math.random() * userColors.length)];
 
-    // Asignación de los bloques de memoria
+    // Asignación de bloques de memoria
     let allocatedSoFar = 0;
     setMemoryBlocks((prev) =>
       prev.map((b) => {
@@ -154,16 +165,19 @@ export const SystemProvider = ({ children }) => {
       })
     );
 
-    // Asignación de PID automático único
     const maxPid = processes.reduce((max, p) => (p.pid > max ? p.pid : max), 100);
     const newPid = maxPid + 1;
+    const numPriority = PRIORITY_MAP[priority] || (typeof priority === 'number' ? priority : 3);
+    const labelPriority = PRIORITY_LABEL[numPriority] || priority;
 
     const newProcess = {
       id: `p_${Date.now()}`,
       pid: newPid,
       name: cleanName,
-      state: 'NEW', // Inicia en estado NEW
-      priority,
+      state: ESTADOS.NEW, // Inicia en estado NEW según la máquina de estados oficial
+      priority: labelPriority,
+      prioridadNum: numPriority,
+      tiempoTotal: ticks,
       memoryBlocks: requestedBlocks,
       memory: requestedBlocks * 16,
       cpu: Number(cpu),
@@ -177,7 +191,7 @@ export const SystemProvider = ({ children }) => {
     addLog({
       level: 'INFO',
       source: 'PROCESS_MGR',
-      message: `Nuevo proceso creado: PID ${newPid} [${cleanName}] (Prioridad: ${priority}, Memoria: ${requestedBlocks} bloques [${requestedBlocks * 16}MB], CPU: ${cpu}%, Estado inicial: NEW).`,
+      message: `Nuevo proceso creado: PID ${newPid} [${cleanName}] (Prioridad: ${labelPriority} [Nivel ${numPriority}], Duración: ${ticks} ticks, Memoria: ${requestedBlocks} blq [${requestedBlocks * 16}MB], CPU: ${cpu}%, Estado: NEW).`,
     });
 
     addLog({
@@ -190,18 +204,19 @@ export const SystemProvider = ({ children }) => {
   };
 
   /**
-   * Ejecutar: NEW o READY -> RUNNING
+   * Admitir proceso: NEW -> READY
+   * Paso obligatorio antes de que un proceso pueda ejecutarse.
    */
-  const executeProcess = (processId) => {
+  const admitProcess = (processId) => {
     setProcesses((prev) =>
       prev.map((p) => {
-        if (p.id === processId && (p.state === 'NEW' || p.state === 'READY')) {
+        if (p.id === processId && p.state === ESTADOS.NEW) {
           addLog({
             level: 'INFO',
             source: 'SCHEDULER',
-            message: `Proceso PID ${p.pid} (${p.name}) puesto en ejecución [${p.state}] -> [RUNNING].`,
+            message: `Proceso PID ${p.pid} (${p.name}) admitido al sistema [NEW] -> [READY].`,
           });
-          return { ...p, state: 'RUNNING' };
+          return { ...p, state: ESTADOS.READY };
         }
         return p;
       })
@@ -209,18 +224,38 @@ export const SystemProvider = ({ children }) => {
   };
 
   /**
-   * Pausar: RUNNING -> WAITING
+   * Ejecutar: READY -> RUNNING
+   * Solo aplicable desde READY (un proceso NEW debe ser admitido primero).
+   */
+  const executeProcess = (processId) => {
+    setProcesses((prev) =>
+      prev.map((p) => {
+        if (p.id === processId && p.state === ESTADOS.READY) {
+          addLog({
+            level: 'INFO',
+            source: 'SCHEDULER',
+            message: `Proceso PID ${p.pid} (${p.name}) puesto en ejecución [READY] -> [RUNNING].`,
+          });
+          return { ...p, state: ESTADOS.RUNNING };
+        }
+        return p;
+      })
+    );
+  };
+
+  /**
+   * Pausar: RUNNING o READY -> WAITING
    */
   const pauseProcess = (processId) => {
     setProcesses((prev) =>
       prev.map((p) => {
-        if (p.id === processId && p.state === 'RUNNING') {
+        if (p.id === processId && (p.state === ESTADOS.RUNNING || p.state === ESTADOS.READY)) {
           addLog({
             level: 'INFO',
             source: 'SCHEDULER',
-            message: `Proceso PID ${p.pid} (${p.name}) pausado [RUNNING] -> [WAITING].`,
+            message: `Proceso PID ${p.pid} (${p.name}) pausado [${p.state}] -> [WAITING].`,
           });
-          return { ...p, state: 'WAITING' };
+          return { ...p, state: ESTADOS.WAITING };
         }
         return p;
       })
@@ -233,13 +268,13 @@ export const SystemProvider = ({ children }) => {
   const resumeProcess = (processId) => {
     setProcesses((prev) =>
       prev.map((p) => {
-        if (p.id === processId && p.state === 'WAITING') {
+        if (p.id === processId && p.state === ESTADOS.WAITING) {
           addLog({
             level: 'INFO',
             source: 'SCHEDULER',
             message: `Proceso PID ${p.pid} (${p.name}) reanudado [WAITING] -> [READY].`,
           });
-          return { ...p, state: 'READY' };
+          return { ...p, state: ESTADOS.READY };
         }
         return p;
       })
@@ -247,15 +282,15 @@ export const SystemProvider = ({ children }) => {
   };
 
   /**
-   * Finalizar: cualquier estado pasa a TERMINATED y LIBERA SU MEMORIA
+   * Finalizar: Cualquier estado activo -> TERMINATED y libera memoria
    */
   const terminateProcess = (processId) => {
     const targetProcess = processes.find((p) => p.id === processId);
-    if (!targetProcess || targetProcess.state === 'TERMINATED') return;
+    if (!targetProcess || targetProcess.state === ESTADOS.TERMINATED) return;
 
     // 1. Cambiar estado a TERMINATED
     setProcesses((prev) =>
-      prev.map((p) => (p.id === processId ? { ...p, state: 'TERMINATED', cpu: 0 } : p))
+      prev.map((p) => (p.id === processId ? { ...p, state: ESTADOS.TERMINATED, cpu: 0 } : p))
     );
 
     // 2. Liberar sus bloques de memoria
@@ -418,7 +453,7 @@ export const SystemProvider = ({ children }) => {
 
     setProcesses((prev) =>
       prev.map((p) =>
-        p.name === 'temp_manager' ? { ...p, state: 'WAITING', color: '#F59E0B' } : p
+        p.name === 'temp_manager' ? { ...p, state: ESTADOS.WAITING, color: '#F59E0B' } : p
       )
     );
 
@@ -475,7 +510,7 @@ export const SystemProvider = ({ children }) => {
     setProcesses((prev) =>
       prev.map((p) =>
         p.name === 'surveillance_proc'
-          ? { ...p, state: 'RUNNING', priority: 'Crítica', color: '#EF4444' }
+          ? { ...p, state: ESTADOS.RUNNING, priority: 'Crítica', prioridadNum: 1, color: '#EF4444' }
           : p
       )
     );
@@ -493,7 +528,7 @@ export const SystemProvider = ({ children }) => {
     addLog({
       level: 'WARN',
       source: 'REACTOR',
-      message: '[REACCIÓN KERNEL] Protocolo de intrusión: "surveillance_proc" (PID 103) elevado a prioridad CRÍTICA y estado RUNNING.',
+      message: '[REACCIÓN KERNEL] Protocolo de intrusión: "surveillance_proc" (PID 103) elevado a prioridad CRÍTICA (Nivel 1) y estado RUNNING.',
     });
 
     addLog({
@@ -520,6 +555,7 @@ export const SystemProvider = ({ children }) => {
         addAlert,
         resolveAlert,
         createProcess,
+        admitProcess,
         executeProcess,
         pauseProcess,
         resumeProcess,

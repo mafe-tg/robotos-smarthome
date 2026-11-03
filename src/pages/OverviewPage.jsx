@@ -3,6 +3,7 @@ import { useSystem } from '../context/SystemContext';
 import { useAuth } from '../context/AuthContext';
 import { MetricCard } from '../components/overview/MetricCard';
 import { ResourceCharts } from '../components/overview/ResourceCharts';
+import { PRIORITY_MAP } from '../data/mockData';
 
 export const OverviewPage = ({ onNavigate }) => {
   const { metrics, processes, devices, alerts, logs, toggleDevice, addLog } = useSystem();
@@ -280,7 +281,7 @@ export const OverviewPage = ({ onNavigate }) => {
                           : 'bg-slate-800 text-slate-400 border border-slate-700'
                       }`}
                     >
-                      Prioridad: {proc.priority}
+                      Prioridad: {proc.priority} ({PRIORITY_MAP[proc.priority] || proc.prioridadNum || 3})
                     </span>
 
                     <span className="text-[11px] font-mono text-slate-400">{proc.cpu}% CPU</span>
