@@ -194,12 +194,18 @@ export const ProcessesPage = () => {
 
     setSimulationResult(result);
 
+    // Cálculo del uso de CPU como tiempo ocupado sobre tiempo total
+    const ticksOcupados = result.linea.length;
+    const usoCpuOcupacion = result.duracionTotal > 0
+      ? Math.round((ticksOcupados / result.duracionTotal) * 100)
+      : 0;
+
     addLog({
       level: 'INFO',
       source: 'SCHEDULER',
       message: `[SIMULACIÓN GANTT] Planificación ejecutada con éxito. Algoritmo: ${selectedAlgorithm}${
         selectedAlgorithm === ALGORITMOS.ROUND_ROBIN ? ` (Quantum: ${quantum})` : ''
-      }. Procesos evaluados: ${clonedInstances.length}, Duración total: ${result.duracionTotal} ticks, CPU Promedio: ${result.usoCpuPromedio}%.`,
+      }. Procesos evaluados: ${clonedInstances.length}, Duración total: ${result.duracionTotal} ticks, Uso CPU (Ocupación): ${usoCpuOcupacion}% (${ticksOcupados}/${result.duracionTotal} ticks), CPU Requerida Promedio: ${result.usoCpuPromedio}%.`,
     });
   };
 
@@ -316,7 +322,7 @@ export const ProcessesPage = () => {
         {simulationResult ? (
           <div className="space-y-6 animate-in fade-in duration-300">
             {/* Métricas Globales */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
                 <div className="text-[10px] font-mono uppercase text-slate-500">Algoritmo Ejecutado</div>
                 <div className="text-sm font-bold text-cyan-400 mt-0.5">
@@ -326,13 +332,27 @@ export const ProcessesPage = () => {
               <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
                 <div className="text-[10px] font-mono uppercase text-slate-500">Duración Total</div>
                 <div className="text-sm font-bold text-white mt-0.5">
-                  {simulationResult.duracionTotal} ticks de CPU
+                  {simulationResult.duracionTotal} ticks
                 </div>
               </div>
               <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
-                <div className="text-[10px] font-mono uppercase text-slate-500">Uso Promedio CPU</div>
+                <div className="text-[10px] font-mono uppercase text-slate-500">Uso de CPU (Ocupación)</div>
                 <div className="text-sm font-bold text-emerald-400 mt-0.5">
+                  {simulationResult.duracionTotal > 0
+                    ? Math.round((simulationResult.linea.length / simulationResult.duracionTotal) * 100)
+                    : 0}%
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                  {simulationResult.linea.length} de {simulationResult.duracionTotal} ticks ocupados
+                </div>
+              </div>
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+                <div className="text-[10px] font-mono uppercase text-slate-500">CPU Requerida Promedio</div>
+                <div className="text-sm font-bold text-amber-400 mt-0.5">
                   {simulationResult.usoCpuPromedio}%
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                  Carga media por proceso
                 </div>
               </div>
               <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800">

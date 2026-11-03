@@ -91,19 +91,18 @@ export const SystemProvider = ({ children }) => {
   };
 
   const resolveAlert = (alertId) => {
+    const targetAlert = alerts.find((a) => a.id === alertId);
+    if (!targetAlert || targetAlert.state === 'Resuelta') return;
+
     setAlerts((prev) =>
-      prev.map((al) => {
-        if (al.id === alertId) {
-          addLog({
-            level: 'INFO',
-            source: 'ALERT_DAEMON',
-            message: `Alerta "${al.title}" marcada como Resuelta por el operador.`,
-          });
-          return { ...al, state: 'Resuelta' };
-        }
-        return al;
-      })
+      prev.map((al) => (al.id === alertId ? { ...al, state: 'Resuelta' } : al))
     );
+
+    addLog({
+      level: 'INFO',
+      source: 'ALERT_DAEMON',
+      message: `Alerta "${targetAlert.title}" marcada como Resuelta por el operador.`,
+    });
   };
 
   // ==========================================
@@ -208,19 +207,18 @@ export const SystemProvider = ({ children }) => {
    * Paso obligatorio antes de que un proceso pueda ejecutarse.
    */
   const admitProcess = (processId) => {
+    const target = processes.find((p) => p.id === processId);
+    if (!target || target.state !== ESTADOS.NEW) return;
+
     setProcesses((prev) =>
-      prev.map((p) => {
-        if (p.id === processId && p.state === ESTADOS.NEW) {
-          addLog({
-            level: 'INFO',
-            source: 'SCHEDULER',
-            message: `Proceso PID ${p.pid} (${p.name}) admitido al sistema [NEW] -> [READY].`,
-          });
-          return { ...p, state: ESTADOS.READY };
-        }
-        return p;
-      })
+      prev.map((p) => (p.id === processId ? { ...p, state: ESTADOS.READY } : p))
     );
+
+    addLog({
+      level: 'INFO',
+      source: 'SCHEDULER',
+      message: `Proceso PID ${target.pid} (${target.name}) admitido al sistema [NEW] -> [READY].`,
+    });
   };
 
   /**
@@ -228,57 +226,54 @@ export const SystemProvider = ({ children }) => {
    * Solo aplicable desde READY (un proceso NEW debe ser admitido primero).
    */
   const executeProcess = (processId) => {
+    const target = processes.find((p) => p.id === processId);
+    if (!target || target.state !== ESTADOS.READY) return;
+
     setProcesses((prev) =>
-      prev.map((p) => {
-        if (p.id === processId && p.state === ESTADOS.READY) {
-          addLog({
-            level: 'INFO',
-            source: 'SCHEDULER',
-            message: `Proceso PID ${p.pid} (${p.name}) puesto en ejecución [READY] -> [RUNNING].`,
-          });
-          return { ...p, state: ESTADOS.RUNNING };
-        }
-        return p;
-      })
+      prev.map((p) => (p.id === processId ? { ...p, state: ESTADOS.RUNNING } : p))
     );
+
+    addLog({
+      level: 'INFO',
+      source: 'SCHEDULER',
+      message: `Proceso PID ${target.pid} (${target.name}) puesto en ejecución [READY] -> [RUNNING].`,
+    });
   };
 
   /**
    * Pausar: RUNNING o READY -> WAITING
    */
   const pauseProcess = (processId) => {
+    const target = processes.find((p) => p.id === processId);
+    if (!target || (target.state !== ESTADOS.RUNNING && target.state !== ESTADOS.READY)) return;
+
     setProcesses((prev) =>
-      prev.map((p) => {
-        if (p.id === processId && (p.state === ESTADOS.RUNNING || p.state === ESTADOS.READY)) {
-          addLog({
-            level: 'INFO',
-            source: 'SCHEDULER',
-            message: `Proceso PID ${p.pid} (${p.name}) pausado [${p.state}] -> [WAITING].`,
-          });
-          return { ...p, state: ESTADOS.WAITING };
-        }
-        return p;
-      })
+      prev.map((p) => (p.id === processId ? { ...p, state: ESTADOS.WAITING } : p))
     );
+
+    addLog({
+      level: 'INFO',
+      source: 'SCHEDULER',
+      message: `Proceso PID ${target.pid} (${target.name}) pausado [${target.state}] -> [WAITING].`,
+    });
   };
 
   /**
    * Reanudar: WAITING -> READY
    */
   const resumeProcess = (processId) => {
+    const target = processes.find((p) => p.id === processId);
+    if (!target || target.state !== ESTADOS.WAITING) return;
+
     setProcesses((prev) =>
-      prev.map((p) => {
-        if (p.id === processId && p.state === ESTADOS.WAITING) {
-          addLog({
-            level: 'INFO',
-            source: 'SCHEDULER',
-            message: `Proceso PID ${p.pid} (${p.name}) reanudado [WAITING] -> [READY].`,
-          });
-          return { ...p, state: ESTADOS.READY };
-        }
-        return p;
-      })
+      prev.map((p) => (p.id === processId ? { ...p, state: ESTADOS.READY } : p))
     );
+
+    addLog({
+      level: 'INFO',
+      source: 'SCHEDULER',
+      message: `Proceso PID ${target.pid} (${target.name}) reanudado [WAITING] -> [READY].`,
+    });
   };
 
   /**
@@ -405,42 +400,46 @@ export const SystemProvider = ({ children }) => {
 
   // Control de dispositivos
   const toggleDevice = (id) => {
+    const target = devices.find((d) => d.id === id);
+    if (!target) return;
+
+    let nextStatus = target.status;
+    let nextTemp = target.temperature;
+
+    switch (target.type) {
+      case 'light':
+        nextStatus = target.status === 'ON' ? 'OFF' : 'ON';
+        break;
+      case 'motion':
+        nextStatus = target.status === 'EN REPOSO' ? 'DETECTADO' : 'EN REPOSO';
+        break;
+      case 'camera':
+        nextStatus = target.status === 'ONLINE' ? 'OFFLINE' : 'ONLINE';
+        break;
+      case 'lock':
+        nextStatus = target.status === 'BLOQUEADA' ? 'DESBLOQUEADA' : 'BLOQUEADA';
+        break;
+      case 'climate':
+        nextTemp = target.temperature >= 24 ? 20.0 : +(target.temperature + 1.5).toFixed(1);
+        nextStatus = `${nextTemp} °C`;
+        break;
+      default:
+        nextStatus = target.status === 'ON' ? 'OFF' : 'ON';
+    }
+
     setDevices((prev) =>
-      prev.map((d) => {
-        if (d.id === id) {
-          let nextStatus = d.status;
-
-          switch (d.type) {
-            case 'light':
-              nextStatus = d.status === 'ON' ? 'OFF' : 'ON';
-              break;
-            case 'motion':
-              nextStatus = d.status === 'EN REPOSO' ? 'DETECTADO' : 'EN REPOSO';
-              break;
-            case 'camera':
-              nextStatus = d.status === 'ONLINE' ? 'OFFLINE' : 'ONLINE';
-              break;
-            case 'lock':
-              nextStatus = d.status === 'BLOQUEADA' ? 'DESBLOQUEADA' : 'BLOQUEADA';
-              break;
-            case 'climate':
-              const nextTemp = d.temperature >= 24 ? 20.0 : +(d.temperature + 1.5).toFixed(1);
-              nextStatus = `${nextTemp} °C`;
-              return { ...d, status: nextStatus, temperature: nextTemp };
-            default:
-              nextStatus = d.status === 'ON' ? 'OFF' : 'ON';
-          }
-
-          addLog({
-            level: 'INFO',
-            source: 'IOT_MANAGER',
-            message: `Dispositivo "${d.name}" conmutado a estado: ${nextStatus}.`,
-          });
-          return { ...d, status: nextStatus };
-        }
-        return d;
-      })
+      prev.map((d) =>
+        d.id === id
+          ? { ...d, status: nextStatus, ...(d.type === 'climate' ? { temperature: nextTemp } : {}) }
+          : d
+      )
     );
+
+    addLog({
+      level: 'INFO',
+      source: 'IOT_MANAGER',
+      message: `Dispositivo "${target.name}" conmutado a estado: ${nextStatus}.`,
+    });
   };
 
   // Simulaciones de fallos
