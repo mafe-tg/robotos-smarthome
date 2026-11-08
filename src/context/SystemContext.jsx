@@ -804,6 +804,22 @@ export const SystemProvider = ({ children }) => {
     });
   };
 
+  // Detener dispositivo (exclusivo ADMIN, usado por DeviceList de Santiago)
+  const stopDevice = (id) => {
+    const target = devices.find((d) => d.id === id);
+    if (!target) return;
+
+    setDevices((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, status: 'OFFLINE' } : d))
+    );
+
+    addLog({
+      level: 'WARNING',
+      source: 'SECURITY_GUARD',
+      message: `[DISPOSITIVO DETENIDO] "${target.name}" puesto en estado OFFLINE por administrador.`,
+    });
+  };
+
   // Simulaciones de fallos
   const simulateSensorDisconnected = () => {
     addAlert({
@@ -936,6 +952,7 @@ export const SystemProvider = ({ children }) => {
         updateFile: updateVfsFile,
         deleteFile: deleteVfsFile,
         toggleDevice,
+        stopDevice,
         simulateSensorDisconnected,
         simulateCommLoss,
         simulateUnauthorizedAccess,
