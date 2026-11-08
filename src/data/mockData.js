@@ -25,8 +25,9 @@ export const INITIAL_PROCESSES = [
     priority: 'Alta',
     prioridadNum: 2,
     cpu: 8,
-    memoryBlocks: 6, // 6 bloques de 16MB = 96MB
-    memory: 96,
+    memoryKb: 128, // 128 KB en el modelo de MemoryManager
+    memory: 128,
+    startKb: 0,
     tiempoTotal: 4, // Duración en ticks para el scheduler
     color: '#10B981',
     isSystem: true,
@@ -40,8 +41,9 @@ export const INITIAL_PROCESSES = [
     priority: 'Media',
     prioridadNum: 3,
     cpu: 3,
-    memoryBlocks: 4, // 64MB
-    memory: 64,
+    memoryKb: 192, // 192 KB
+    memory: 192,
+    startKb: 448,
     tiempoTotal: 5,
     color: '#F59E0B',
     isSystem: true,
@@ -55,8 +57,9 @@ export const INITIAL_PROCESSES = [
     priority: 'Media',
     prioridadNum: 3,
     cpu: 18,
-    memoryBlocks: 8, // 128MB
-    memory: 128,
+    memoryKb: 256, // 256 KB
+    memory: 256,
+    startKb: 128,
     tiempoTotal: 6,
     color: '#3B82F6',
     isSystem: true,
@@ -70,8 +73,9 @@ export const INITIAL_PROCESSES = [
     priority: 'Media',
     prioridadNum: 3,
     cpu: 6,
-    memoryBlocks: 3, // 48MB
-    memory: 48,
+    memoryKb: 96, // 96 KB
+    memory: 96,
+    startKb: 640,
     tiempoTotal: 3,
     color: '#06B6D4',
     isSystem: true,
@@ -85,8 +89,9 @@ export const INITIAL_PROCESSES = [
     priority: 'Baja',
     prioridadNum: 4,
     cpu: 2,
-    memoryBlocks: 2, // 32MB
-    memory: 32,
+    memoryKb: 64, // 64 KB
+    memory: 64,
+    startKb: 736,
     tiempoTotal: 4,
     color: '#8B5CF6',
     isSystem: true,
@@ -100,8 +105,9 @@ export const INITIAL_PROCESSES = [
     priority: 'Crítica',
     prioridadNum: 1,
     cpu: 1,
-    memoryBlocks: 2, // 32MB
-    memory: 32,
+    memoryKb: 64, // 64 KB
+    memory: 64,
+    startKb: 384,
     tiempoTotal: 2,
     color: '#EC4899',
     isSystem: true,
@@ -109,38 +115,187 @@ export const INITIAL_PROCESSES = [
   },
 ];
 
-export const INITIAL_MEMORY_BLOCKS = Array.from({ length: 64 }, (_, index) => {
-  // Bloques 0-7: Kernel
-  if (index < 8) {
-    return { id: index, state: 'KERNEL', processName: 'Kernel_Core', color: '#6366F1' };
-  }
-  // Bloques 8-15: surveillance_proc (8 bloques)
-  if (index >= 8 && index < 16) {
-    return { id: index, state: 'ALLOCATED', processName: 'surveillance_proc', color: '#3B82F6' };
-  }
-  // Bloques 16-21: lighting_daemon (6 bloques)
-  if (index >= 16 && index < 22) {
-    return { id: index, state: 'ALLOCATED', processName: 'lighting_daemon', color: '#10B981' };
-  }
-  // Bloques 22-25: temp_manager (4 bloques)
-  if (index >= 22 && index < 26) {
-    return { id: index, state: 'ALLOCATED', processName: 'temp_manager', color: '#F59E0B' };
-  }
-  // Bloques 26-28: routine_engine (3 bloques)
-  if (index >= 26 && index < 29) {
-    return { id: index, state: 'ALLOCATED', processName: 'routine_engine', color: '#06B6D4' };
-  }
-  // Bloques 29-30: energy_monitor (2 bloques)
-  if (index >= 29 && index < 31) {
-    return { id: index, state: 'ALLOCATED', processName: 'energy_monitor', color: '#8B5CF6' };
-  }
-  // Bloques 31-32: lock_guard (2 bloques)
-  if (index >= 31 && index < 33) {
-    return { id: index, state: 'ALLOCATED', processName: 'lock_guard', color: '#EC4899' };
-  }
-  // Bloques 33-63: Libres (31 bloques)
-  return { id: index, state: 'FREE', processName: null, color: '#1E293B' };
-});
+export const INITIAL_SUPABASE_MEMORY_BLOCKS = [
+  { id: 1, owner: 'lighting_daemon', start_kb: 0, size_kb: 128, color: '#10B981' },
+  { id: 2, owner: 'surveillance_proc', start_kb: 128, size_kb: 256, color: '#3B82F6' },
+  { id: 3, owner: 'lock_guard', start_kb: 384, size_kb: 64, color: '#EC4899' },
+  { id: 4, owner: 'temp_manager', start_kb: 448, size_kb: 192, color: '#F59E0B' },
+  { id: 5, owner: 'routine_engine', start_kb: 640, size_kb: 96, color: '#06B6D4' },
+  { id: 6, owner: 'energy_monitor', start_kb: 736, size_kb: 64, color: '#8B5CF6' },
+];
+
+export const INITIAL_MEMORY_BLOCKS = INITIAL_SUPABASE_MEMORY_BLOCKS;
+
+export const INITIAL_SUPABASE_FILES = [
+  {
+    id: 1,
+    path: '/config/home.json',
+    content: '{"casa":"RobotOS SmartHome","ramKb":1024,"discoBytes":10000000}',
+    size_bytes: 63,
+    created_at: '2026-11-04T02:40:33.927932+00:00',
+    modified_at: '2026-11-04T02:40:33.927932+00:00',
+  },
+  {
+    id: 2,
+    path: '/config/rutinas.json',
+    content: '{"noche":{"luces":"off","cerraduras":"on"},"manana":{"luces":"on","clima":"22C"}}',
+    size_bytes: 81,
+    created_at: '2026-11-04T02:40:33.927932+00:00',
+    modified_at: '2026-11-04T02:40:33.927932+00:00',
+  },
+  {
+    id: 3,
+    path: '/logs/system.log',
+    content: 'Sistema iniciado correctamente',
+    size_bytes: 30,
+    created_at: '2026-11-04T02:40:33.927932+00:00',
+    modified_at: '2026-11-04T02:40:33.927932+00:00',
+  },
+  {
+    id: 4,
+    path: '/surveillance/camara_1/clip_001.clip',
+    content: 'clip:camara_1:1',
+    size_bytes: 1500000,
+    created_at: '2026-11-04T02:40:33.927932+00:00',
+    modified_at: '2026-11-04T02:40:33.927932+00:00',
+  },
+  {
+    id: 5,
+    path: '/surveillance/camara_1/clip_002.clip',
+    content: 'clip:camara_1:2',
+    size_bytes: 1200000,
+    created_at: '2026-11-04T02:40:33.927932+00:00',
+    modified_at: '2026-11-04T02:40:33.927932+00:00',
+  },
+  {
+    id: 6,
+    path: '/surveillance/camara_2/clip_003.clip',
+    content: 'clip:camara_2:3',
+    size_bytes: 1800000,
+    created_at: '2026-11-04T02:40:33.927932+00:00',
+    modified_at: '2026-11-04T02:40:33.927932+00:00',
+  },
+];
+
+export const INITIAL_SUPABASE_CLIPS = [
+  {
+    id: 1,
+    camera_id: 'camara_1',
+    path: '/surveillance/camara_1/clip_001.clip',
+    size_mb: 1.5,
+    is_protected: false,
+    recorded_at: '2026-11-03T23:40:33.927932+00:00',
+  },
+  {
+    id: 2,
+    camera_id: 'camara_1',
+    path: '/surveillance/camara_1/clip_002.clip',
+    size_mb: 1.2,
+    is_protected: true,
+    recorded_at: '2026-11-04T00:40:33.927932+00:00',
+  },
+  {
+    id: 3,
+    camera_id: 'camara_2',
+    path: '/surveillance/camara_2/clip_003.clip',
+    size_mb: 1.8,
+    is_protected: false,
+    recorded_at: '2026-11-04T01:40:33.927932+00:00',
+  },
+];
+
+export const INITIAL_ENERGY_DEVICES = [
+  { device: 'luces_sala', watts: 12 },
+  { device: 'camara_1', watts: 8 },
+  { device: 'camara_2', watts: 8 },
+  { device: 'cerradura_principal', watts: 5 },
+  { device: 'aire_acondicionado', watts: 1500 },
+];
+
+export const INITIAL_ENERGY_USAGE = [
+  { id: 1, device: 'luces_sala', seconds: 21600 },
+  { id: 2, device: 'aire_acondicionado', seconds: 14400 },
+  { id: 3, device: 'camara_1', seconds: 86400 },
+  { id: 4, device: 'camara_2', seconds: 86400 },
+  { id: 5, device: 'cerradura_principal', seconds: 86400 },
+  { id: 6, device: 'luces_sala', seconds: 18000 },
+  { id: 7, device: 'aire_acondicionado', seconds: 7200 },
+];
+
+export const INITIAL_SUPABASE_LOGS = [
+  {
+    id: 'supa_1',
+    created_at: '2026-11-03T20:40:33.927932+00:00',
+    timestamp: '20:40:33',
+    level: 'INFO',
+    source: 'STORAGE',
+    message: 'Modulo de almacenamiento iniciado',
+  },
+  {
+    id: 'supa_2',
+    created_at: '2026-11-03T21:40:33.927932+00:00',
+    timestamp: '21:40:33',
+    level: 'INFO',
+    source: 'SURVEILLANCE',
+    message: 'Clip guardado /surveillance/camara_1/clip_001.clip (1.5 MB, protegido=false)',
+  },
+  {
+    id: 'supa_3',
+    created_at: '2026-11-03T22:40:33.927932+00:00',
+    timestamp: '22:40:33',
+    level: 'DEBUG',
+    source: 'MEMORY',
+    message: 'Bloque asignado a luces (128 KB)',
+  },
+  {
+    id: 'supa_4',
+    created_at: '2026-11-03T23:40:33.927932+00:00',
+    timestamp: '23:40:33',
+    level: 'WARNING',
+    source: 'SURVEILLANCE',
+    message: 'Clip antiguo eliminado: /surveillance/camara_1/clip_000.clip',
+  },
+  {
+    id: 'supa_5',
+    created_at: '2026-11-04T00:40:33.927932+00:00',
+    timestamp: '00:40:33',
+    level: 'INFO',
+    source: 'SURVEILLANCE',
+    message: 'Clip guardado /surveillance/camara_1/clip_002.clip (1.2 MB, protegido=true)',
+  },
+  {
+    id: 'supa_6',
+    created_at: '2026-11-04T01:10:33.927932+00:00',
+    timestamp: '01:10:33',
+    level: 'WARNING',
+    source: 'ENERGY',
+    message: 'Consumo total 6.07 kWh supera el umbral de 5.0 kWh',
+  },
+  {
+    id: 'supa_7',
+    created_at: '2026-11-04T01:40:33.927932+00:00',
+    timestamp: '01:40:33',
+    level: 'ERROR',
+    source: 'SURVEILLANCE',
+    message: 'Sin espacio para clip de camara_2 (2.0 MB)',
+  },
+  {
+    id: 'supa_8',
+    created_at: '2026-11-04T02:10:33.927932+00:00',
+    timestamp: '02:10:33',
+    level: 'CRITICAL',
+    source: 'MEMORY',
+    message: 'Memoria disponible por debajo del 10%',
+  },
+  {
+    id: 'supa_9',
+    created_at: '2026-11-04T02:35:33.927932+00:00',
+    timestamp: '02:35:33',
+    level: 'INFO',
+    source: 'STORAGE',
+    message: 'Rotacion de logs completada',
+  },
+];
 
 export const INITIAL_FILE_SYSTEM = {
   '/system': [

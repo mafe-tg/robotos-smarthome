@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSystem } from '../context/SystemContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -14,6 +14,13 @@ export const LogsAlertsPage = () => {
   } = useSystem();
 
   const { role, checkPermission } = useAuth();
+  const [selectedLevel, setSelectedLevel] = useState('ALL');
+
+  const filteredLogs = logs.filter((l) => {
+    if (selectedLevel === 'ALL') return true;
+    if (selectedLevel === 'WARNING') return l.level === 'WARNING' || l.level === 'WARN';
+    return l.level === selectedLevel;
+  });
 
   // Handlers protegidos con checkPermission exclusivo para ADMIN
   const handleSimulateSensor = () => {
@@ -176,27 +183,50 @@ export const LogsAlertsPage = () => {
         </div>
       </div>
 
-      {/* 3. VISOR DE LOGS DEL SISTEMA */}
+      {/* 3. VISOR DE LOGS DEL SISTEMA CON NIVELES COMPLETOS */}
       <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h3 className="text-sm font-bold text-white tracking-wide">Terminal de Logs de RobotOS</h3>
-            <p className="text-xs text-slate-400">Salida en vivo del Kernel, VFS y Seguridad</p>
+            <p className="text-xs text-slate-400">Salida en vivo del Kernel, VFS, Memoria y Seguridad (Supabase + Local)</p>
           </div>
-          <span className="text-[11px] font-mono text-slate-500">Últimos {logs.length} eventos</span>
+          
+          {/* Selector de Nivel */}
+          <div className="flex flex-wrap gap-1.5 text-[10px] font-mono">
+            {['ALL', 'CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'].map((lvl) => {
+              const isSel = selectedLevel === lvl;
+              return (
+                <button
+                  key={lvl}
+                  onClick={() => setSelectedLevel(lvl)}
+                  className={`px-2 py-1 rounded-lg border transition-all ${
+                    isSel
+                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500 font-bold'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  {lvl}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="h-64 rounded-xl bg-slate-950 border border-slate-800/80 p-4 font-mono text-xs overflow-y-auto space-y-1.5">
-          {logs.map((log) => (
+        <div className="h-72 rounded-xl bg-slate-950 border border-slate-800/80 p-4 font-mono text-xs overflow-y-auto space-y-1.5">
+          {filteredLogs.map((log) => (
             <div key={log.id} className="flex items-start space-x-2">
-              <span className="text-slate-400 shrink-0">[{log.timestamp}]</span>
+              <span className="text-slate-500 shrink-0">[{log.timestamp}]</span>
               <span
-                className={`text-[10px] uppercase font-bold px-1.5 rounded shrink-0 ${
-                  log.level === 'ERROR'
-                    ? 'bg-red-950 text-red-400 border border-red-900/60'
-                    : log.level === 'WARN'
-                    ? 'bg-amber-950 text-amber-400 border border-amber-900/60'
-                    : 'bg-cyan-950 text-cyan-400 border border-cyan-900/60'
+                className={`text-[9px] uppercase font-bold px-1.5 py-0.2 rounded shrink-0 border ${
+                  log.level === 'CRITICAL'
+                    ? 'bg-fuchsia-950 text-fuchsia-300 border-fuchsia-800 animate-pulse'
+                    : log.level === 'ERROR'
+                    ? 'bg-red-950 text-red-400 border-red-900/60'
+                    : log.level === 'WARN' || log.level === 'WARNING'
+                    ? 'bg-amber-950 text-amber-400 border-amber-900/60'
+                    : log.level === 'DEBUG'
+                    ? 'bg-slate-800 text-slate-400 border-slate-700'
+                    : 'bg-cyan-950 text-cyan-400 border-cyan-900/60'
                 }`}
               >
                 {log.level}

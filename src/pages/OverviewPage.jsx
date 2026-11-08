@@ -110,10 +110,10 @@ export const OverviewPage = ({ onNavigate }) => {
             />
 
             <MetricCard
-              title="Memoria RAM"
-              value={`${metrics.ramUsageMB} MB`}
-              subValue={`de ${metrics.ramTotalMB} MB`}
-              percentage={Math.round((metrics.ramUsageMB / metrics.ramTotalMB) * 100)}
+              title="Memoria RAM (Dana)"
+              value={`${metrics.ramUsageKB} KB`}
+              subValue={`de ${metrics.ramTotalKB} KB`}
+              percentage={metrics.ramTotalKB ? Math.round((metrics.ramUsageKB / metrics.ramTotalKB) * 100) : 0}
               color="purple"
               icon={
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -124,9 +124,9 @@ export const OverviewPage = ({ onNavigate }) => {
 
             <MetricCard
               title="Almacenamiento VFS"
-              value={`${metrics.storageUsageGB} GB`}
-              subValue={`de ${metrics.storageTotalGB} GB`}
-              percentage={Math.round((metrics.storageUsageGB / metrics.storageTotalGB) * 100)}
+              value={`${metrics.storageUsageMB} MB`}
+              subValue={`de ${metrics.storageTotalMB} MB`}
+              percentage={Math.round((metrics.storageUsageBytes / metrics.storageCapacityBytes) * 100)}
               color="amber"
               icon={
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -136,12 +136,12 @@ export const OverviewPage = ({ onNavigate }) => {
             />
 
             <MetricCard
-              title="Energía & Batería"
-              value={`${metrics.batteryPercent}%`}
-              subValue={`${metrics.powerDrawWatts} W consumo`}
-              percentage={metrics.batteryPercent}
-              status="Alimentación AC + Batería"
-              color="emerald"
+              title="Consumo de Energía"
+              value={`${metrics.energyKwh.toFixed(2)} kWh`}
+              subValue={`Costo est.: $${Math.round(metrics.energyCosto).toLocaleString('es-CO')} COP`}
+              percentage={Math.min(100, Math.round((metrics.energyKwh / 10) * 100))}
+              status={metrics.energyKwh > 5.0 ? 'Supera umbral (5.0 kWh)' : 'Consumo Nominal'}
+              color={metrics.energyKwh > 5.0 ? 'amber' : 'emerald'}
               icon={
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -154,8 +154,8 @@ export const OverviewPage = ({ onNavigate }) => {
             cpuUsage={metrics.cpuUsage}
             ramUsageMB={metrics.ramUsageMB}
             ramTotalMB={metrics.ramTotalMB}
-            storageUsageGB={metrics.storageUsageGB}
-            storageTotalGB={metrics.storageTotalGB}
+            storageUsageMB={metrics.storageUsageMB}
+            storageTotalMB={metrics.storageTotalMB}
           />
         </>
       )}
@@ -310,19 +310,24 @@ export const OverviewPage = ({ onNavigate }) => {
               <div className="text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2">Últimos Logs del Sistema</div>
               <div className="space-y-2 font-mono text-xs">
                 {logs.slice(0, 3).map((log) => (
-                  <div key={log.id} className="p-2 rounded-lg bg-slate-950/70 border border-slate-800/60 leading-relaxed break-words">
-                    <span className="text-slate-500">[{log.timestamp}]</span>{' '}
+                  <div key={log.id} className="p-2 rounded-lg bg-slate-950/70 border border-slate-800/60 leading-relaxed break-words flex items-start space-x-2">
+                    <span className="text-slate-500 shrink-0">[{log.timestamp}]</span>
                     <span
-                      className={`font-semibold ${
-                        log.level === 'ERROR'
-                          ? 'text-red-400'
-                          : log.level === 'WARN'
-                          ? 'text-amber-400'
-                          : 'text-cyan-400'
+                      className={`text-[9px] uppercase font-bold px-1.5 py-0.2 rounded shrink-0 border ${
+                        log.level === 'CRITICAL'
+                          ? 'bg-fuchsia-950 text-fuchsia-300 border-fuchsia-800 animate-pulse'
+                          : log.level === 'ERROR'
+                          ? 'bg-red-950 text-red-400 border-red-900/60'
+                          : log.level === 'WARN' || log.level === 'WARNING'
+                          ? 'bg-amber-950 text-amber-400 border-amber-900/60'
+                          : log.level === 'DEBUG'
+                          ? 'bg-slate-800 text-slate-400 border-slate-700'
+                          : 'bg-cyan-950 text-cyan-400 border-cyan-900/60'
                       }`}
                     >
-                      {log.source}:
-                    </span>{' '}
+                      {log.level}
+                    </span>
+                    <span className="text-slate-400 font-semibold shrink-0">{log.source}:</span>
                     <span className="text-slate-300">{log.message}</span>
                   </div>
                 ))}

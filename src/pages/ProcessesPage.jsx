@@ -11,6 +11,7 @@ import { simular } from '../../procesos-cpu/src/cpu.js';
 export const ProcessesPage = () => {
   const {
     processes,
+    memoryStats,
     freeBlocksCount,
     createProcess,
     admitProcess,
@@ -27,7 +28,7 @@ export const ProcessesPage = () => {
   const [name, setName] = useState('');
   const [priority, setPriority] = useState('Media');
   const [tiempoTotal, setTiempoTotal] = useState(4); // Duración en ticks requerida por la clase Proceso
-  const [memoryBlocksCount, setMemoryBlocksCount] = useState(2);
+  const [memoryKb, setMemoryKb] = useState(64); // Memoria requerida en KB (modelo Dana)
   const [cpu, setCpu] = useState(10);
   const [formFeedback, setFormFeedback] = useState(null);
 
@@ -63,7 +64,7 @@ export const ProcessesPage = () => {
     const res = createProcess({
       name,
       priority,
-      memoryBlocksCount: Number(memoryBlocksCount),
+      memoryKb: Number(memoryKb),
       cpu: Number(cpu),
       tiempoTotal: Number(tiempoTotal) || 4,
     });
@@ -71,11 +72,11 @@ export const ProcessesPage = () => {
     if (res.success) {
       setFormFeedback({
         type: 'success',
-        message: `Proceso "${res.process.name}" (PID ${res.process.pid}) creado en estado NEW con duración de ${res.process.tiempoTotal} ticks y ${res.process.memoryBlocks} bloques de memoria.`,
+        message: `Proceso "${res.process.name}" (PID ${res.process.pid}) creado en estado NEW con duración de ${res.process.tiempoTotal} ticks y ${res.process.memoryKb} KB de memoria.`,
       });
       setName('');
       setTiempoTotal(4);
-      setMemoryBlocksCount(2);
+      setMemoryKb(64);
       setCpu(10);
     } else {
       setFormFeedback({
@@ -161,7 +162,7 @@ export const ProcessesPage = () => {
     // Instanciar objetos de la clase Proceso de la compañera para no alterar el estado vivo del dashboard
     const clonedInstances = activeProcesses.map((p) => {
       const numPriority = PRIORITY_MAP[p.priority] || p.prioridadNum || 3;
-      const memReq = p.memory || (p.memoryBlocks * 16) || 32;
+      const memReq = p.memoryKb || p.memory || 64;
       const dur = p.tiempoTotal || 4;
 
       const procObj = new Proceso({
@@ -518,11 +519,11 @@ export const ProcessesPage = () => {
           <div className="flex items-center space-x-2 text-xs font-mono">
             <span className="text-slate-500">Memoria libre:</span>
             <span className={`px-2 py-0.5 rounded font-bold ${
-              freeBlocksCount > 5
+              (memoryStats?.freeKb ?? 224) > 100
                 ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60'
                 : 'bg-red-950/60 text-red-400 border border-red-800/60'
             }`}>
-              {freeBlocksCount} bloques ({freeBlocksCount * 16} MB)
+              {memoryStats?.freeKb ?? 224} KB disponibles
             </span>
           </div>
         </div>
@@ -586,17 +587,18 @@ export const ProcessesPage = () => {
             />
           </div>
 
-          {/* Memoria Requerida (en Bloques) */}
+          {/* Memoria Requerida (en KB) */}
           <div>
             <label className="block text-[11px] font-mono uppercase text-slate-400 mb-1">
-              Memoria: <span className="text-cyan-400 font-bold">{memoryBlocksCount} blq</span>
+              Memoria: <span className="text-cyan-400 font-bold">{memoryKb} KB</span>
             </label>
             <input
               type="number"
-              min={1}
-              max={64}
-              value={memoryBlocksCount}
-              onChange={(e) => setMemoryBlocksCount(e.target.value)}
+              min={16}
+              max={1024}
+              step={16}
+              value={memoryKb}
+              onChange={(e) => setMemoryKb(Math.max(16, parseInt(e.target.value) || 16))}
               className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 focus:border-cyan-500 focus:outline-none text-xs text-white font-mono"
             />
           </div>
@@ -747,8 +749,7 @@ export const ProcessesPage = () => {
                         <span className="text-slate-500">Liberada</span>
                       ) : (
                         <div className="text-slate-300">
-                          <span className="text-cyan-400 font-bold">{proc.memoryBlocks || 1} blq</span>
-                          <span className="text-slate-500 text-[10px] ml-1">({proc.memory || (proc.memoryBlocks * 16)} MB)</span>
+                          <span className="text-cyan-400 font-bold">{proc.memoryKb || proc.memory || 64} KB</span>
                         </div>
                       )}
                     </td>

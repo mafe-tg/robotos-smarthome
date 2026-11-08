@@ -12,7 +12,15 @@ import {
   Cell,
 } from 'recharts';
 
-export const ResourceCharts = ({ cpuUsage, ramUsageMB, ramTotalMB, storageUsageGB, storageTotalGB }) => {
+export const ResourceCharts = ({
+  cpuUsage,
+  ramUsageMB,
+  ramTotalMB,
+  storageUsageMB,
+  storageTotalMB,
+  storageUsageGB,
+  storageTotalGB,
+}) => {
   const cpuHistory = [
     { time: '20:10', cpu: 15, power: 90 },
     { time: '20:11', cpu: 22, power: 105 },
@@ -22,13 +30,17 @@ export const ResourceCharts = ({ cpuUsage, ramUsageMB, ramTotalMB, storageUsageG
     { time: '20:15', cpu: cpuUsage, power: 115 },
   ];
 
-  const storageFreeGB = +(storageTotalGB - storageUsageGB).toFixed(1);
-  const usedPercent = Math.round((storageUsageGB / storageTotalGB) * 100);
+  const actualUsed = storageUsageMB !== undefined ? storageUsageMB : storageUsageGB || 4.5;
+  const actualTotal = storageTotalMB !== undefined ? storageTotalMB : storageTotalGB || 10.0;
+  const unit = storageUsageMB !== undefined ? 'MB' : 'GB';
+
+  const storageFree = +(actualTotal - actualUsed).toFixed(2);
+  const usedPercent = Math.round((actualUsed / actualTotal) * 100);
   const freePercent = 100 - usedPercent;
 
   const storageData = [
-    { name: 'Espacio Usado', value: storageUsageGB, color: '#06B6D4' },
-    { name: 'Espacio Libre', value: storageFreeGB, color: '#1E293B' },
+    { name: 'Espacio Usado', value: actualUsed, color: '#06B6D4' },
+    { name: 'Espacio Libre', value: storageFree, color: '#1E293B' },
   ];
 
   return (
@@ -161,7 +173,7 @@ export const ResourceCharts = ({ cpuUsage, ramUsageMB, ramTotalMB, storageUsageG
                   borderRadius: '0.5rem',
                   fontSize: '11px',
                 }}
-                formatter={(val) => [`${val} GB`, '']}
+                formatter={(val) => [`${val} ${unit}`, '']}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -181,7 +193,7 @@ export const ResourceCharts = ({ cpuUsage, ramUsageMB, ramTotalMB, storageUsageG
                 <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
                 <span>Usado ({usedPercent}%)</span>
               </div>
-              <div className="text-sm font-bold text-white mt-0.5">{storageUsageGB} GB</div>
+              <div className="text-sm font-bold text-white mt-0.5">{actualUsed} {unit}</div>
             </div>
 
             <div className="p-2 rounded-xl bg-slate-950/80 border border-slate-800">
@@ -189,12 +201,12 @@ export const ResourceCharts = ({ cpuUsage, ramUsageMB, ramTotalMB, storageUsageG
                 <span className="w-2 h-2 rounded-full bg-slate-600"></span>
                 <span>Libre ({freePercent}%)</span>
               </div>
-              <div className="text-sm font-bold text-slate-300 mt-0.5">{storageFreeGB} GB</div>
+              <div className="text-sm font-bold text-slate-300 mt-0.5">{storageFree} {unit}</div>
             </div>
           </div>
 
           <div className="text-center text-[11px] font-mono text-slate-400">
-            Capacidad Total: <strong className="text-slate-300">{storageTotalGB} GB</strong>
+            Capacidad Total: <strong className="text-slate-300">{actualTotal} {unit}</strong>
           </div>
         </div>
       </div>
