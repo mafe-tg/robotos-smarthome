@@ -3,14 +3,28 @@ import { useSystem } from '../context/SystemContext';
 import { useAuth } from '../context/AuthContext';
 import { DeviceList } from '../features/security/components/DeviceList';
 
-// Mapea el estado interno del dashboard al formato que espera DeviceList de Santiago
+// Mapea el estado interno del dashboard al formato que espera DeviceList de Santiago.
+//
+// Regla clave: en DeviceList el estado representa la CONEXIÓN, no el encendido.
+//   • 'offline'  → el dispositivo perdió comunicación ('OFFLINE' real: falla simulada o stopDevice).
+//   • 'alert'    → el dispositivo responde pero tiene una falla/evento activo (sensor disparado).
+//   • 'online'   → el dispositivo responde con normalidad (encendido, apagado, bloqueado, en reposo…).
+//   • 'maintenance' → lock en modo desbloqueado (acceso abierto = mantenimiento de seguridad).
+//
+// Solo se asigna 'offline' cuando status === 'OFFLINE', independientemente del tipo,
+// porque ese valor lo produce exclusivamente simulateCommLoss() o stopDevice().
 const mapDeviceStatus = (dev) => {
-  if (dev.type === 'motion') return dev.status === 'DETECTADO' ? 'alert' : 'online';
-  if (dev.type === 'lock')   return dev.status === 'BLOQUEADA'  ? 'online' : 'maintenance';
-  if (dev.type === 'climate') return 'online';
-  if (dev.status === 'ON' || dev.status === 'ONLINE') return 'online';
-  if (dev.status === 'OFFLINE' || dev.status === 'OFF') return 'offline';
-  return 'offline';
+  // Pérdida de comunicación real (cámara desconectada, falla simulada, o detención por admin)
+  if (dev.status === 'OFFLINE') return 'offline';
+
+  // Sensor de movimiento disparado → alerta activa
+  if (dev.type === 'motion' && dev.status === 'DETECTADO') return 'alert';
+
+  // Cerradura desbloqueada → "maintenance" (acceso abierto, revisión de seguridad)
+  if (dev.type === 'lock' && dev.status === 'DESBLOQUEADA') return 'maintenance';
+
+  // Todo lo demás (ON, OFF, EN REPOSO, BLOQUEADA, ONLINE, "22.5 °C"…) = dispositivo conectado
+  return 'online';
 };
 
 export const DevicesPage = () => {
