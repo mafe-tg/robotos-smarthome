@@ -55,6 +55,7 @@ export const SystemProvider = ({ children }) => {
   const logManagerRef = useRef(null);
   const surveillanceStorageRef = useRef(null);
   const energyMonitorRef = useRef(null);
+  const lastLogRef = useRef({ message: '', time: 0 });
 
   // Inicialización síncrona segura con datos semilla idénticos a Supabase
   if (!memoryManagerRef.current) {
@@ -254,6 +255,17 @@ export const SystemProvider = ({ children }) => {
   };
 
   const addLog = ({ level = 'INFO', source = 'SYSTEM', message }) => {
+    // Evitar registros duplicados inmediatos del mismo mensaje
+    const now = Date.now();
+    if (
+      lastLogRef.current.message === message &&
+      lastLogRef.current.source === source &&
+      now - lastLogRef.current.time < 500
+    ) {
+      return;
+    }
+    lastLogRef.current = { message, source, time: now };
+
     const validLevel = level === 'WARN' ? 'WARNING' : level.toUpperCase();
     const safeLevel = validLevel in LEVELS ? validLevel : 'INFO';
 
@@ -507,11 +519,39 @@ export const SystemProvider = ({ children }) => {
 
   /**
    * Compactar memoria RAM usando MemoryManager.compact()
+   * Si no hay huecos, no ejecuta compactación y retorna aviso.
    */
   const compactMemory = () => {
     const mm = memoryManagerRef.current;
-    if (!mm) return;
+    if (!mm) return { success: false, alreadyCompact: true, message: 'Administrador de memoria no disponible' };
 
+    // 1. Detectar si existe fragmentación (huecos entre bloques o antes del primer bloque)
+    const sorted = [...mm.blocks].sort((a, b) => a.start - b.start);
+    let cursor = 0;
+    let hasHoles = false;
+
+    for (const b of sorted) {
+      if (b.start > cursor) {
+        hasHoles = true;
+        break;
+      }
+      cursor = b.start + b.size;
+    }
+
+    if (!hasHoles) {
+      addLog({
+        level: 'INFO',
+        source: 'MEM_MANAGER',
+        message: 'Verificación de memoria RAM: No hay fragmentación, la memoria ya está compacta.',
+      });
+      return {
+        success: false,
+        alreadyCompact: true,
+        message: 'No hay fragmentación, la memoria ya está compacta.',
+      };
+    }
+
+    // 2. Si hay huecos, compactar con la clase oficial de Dana
     mm.compact();
     setMemoryBlocks([...mm.blocks]);
     setMemoryStats(mm.stats());
@@ -521,6 +561,12 @@ export const SystemProvider = ({ children }) => {
       source: 'MEM_MANAGER',
       message: `Memoria RAM compactada: bloques reubicados de forma contigua en memoria principal (0 a ${mm.stats().usedKb} KB). Fragmentación externa eliminada.`,
     });
+
+    return {
+      success: true,
+      alreadyCompact: false,
+      message: `Memoria RAM compactada: bloques contiguos de 0 a ${mm.stats().usedKb} KB. Fragmentación eliminada.`,
+    };
   };
 
   /**
@@ -550,21 +596,168 @@ export const SystemProvider = ({ children }) => {
     return false;
   };
 
-  // Operaciones de Archivos (VFS de Dana)
-  const createFile = (path, content = '', size = null) => {
-    const vfs = vfsRef.current;
-    if (!vfs) return false;
+  // ==========================================
+  // OPERACIONES CRUD EN VIRTUALFILESYSTEM (DANA)
+  // ==========================================
 
-    const success = vfs.write(path, content, { size });
-    if (success) {
-      setVfsStats({ usedBytes: vfs.used(), capacityBytes: vfs.capacity });
+  /**
+   * Crear archivo en VFS usando write()
+   */
+  const createVfsFile = ({ path, content = '' }) => {
+    const vfs = vfsRef.current;
+    if (!vfs) return { success: false, error: 'VFS no inicializado' };
+
+    const normPath = VirtualFileSystem.norm(path);
+
+    if (vfs.exists(normPath)) {
       addLog({
-        level: 'INFO',
+        level: 'WARNING',
         source: 'VFS',
-        message: `Archivo escrito en VirtualFileSystem: "${path}".`,
+        message: `Intento de creación fallido: El archivo "${normPath}" ya existe.`,
       });
+      return { success: false, error: 'El archivo ya existe' };
     }
-    return success;
+
+    const success = vfs.write(normPath, content);
+    if (!success) {
+      addAlert({
+        title: 'VFS: Espacio Insuficiente',
+        details: `No hay espacio en disco para crear "${normPath}".`,
+        severity: 'error',
+      });
+      addLog({
+        level: 'ERROR',
+        source: 'VFS',
+        message: `Sin espacio en disco virtual para crear "${normPath}".`,
+      });
+      return { success: false, error: 'Espacio en disco insuficiente' };
+    }
+
+    const fileData = vfs.files.get(normPath);
+    const newFile = {
+      id: `f_${Date.now()}`,
+      path: normPath,
+      content: fileData.content,
+      size_bytes: fileData.size,
+      created_at: new Date(fileData.created).toISOString(),
+      modified_at: new Date(fileData.modified).toISOString(),
+    };
+
+    setVfsFiles((prev) => [...prev, newFile]);
+    setVfsStats({ usedBytes: vfs.used(), capacityBytes: vfs.capacity });
+
+    addLog({
+      level: 'INFO',
+      source: 'VFS',
+      message: `Archivo creado: "${normPath}" (${fileData.size} Bytes) mediante VirtualFileSystem.write().`,
+    });
+
+    return { success: true, file: newFile };
+  };
+
+  /**
+   * Modificar archivo en VFS usando write() y rename() si la ruta cambió
+   */
+  const updateVfsFile = ({ oldPath, newPath, content }) => {
+    const vfs = vfsRef.current;
+    if (!vfs) return { success: false, error: 'VFS no inicializado' };
+
+    const normOld = VirtualFileSystem.norm(oldPath);
+    const normNew = VirtualFileSystem.norm(newPath);
+
+    if (!vfs.exists(normOld)) {
+      addLog({
+        level: 'ERROR',
+        source: 'VFS',
+        message: `Modificación fallida: Archivo "${normOld}" no encontrado.`,
+      });
+      return { success: false, error: 'Archivo no encontrado' };
+    }
+
+    // Si cambió la ruta, renombrar primero con rename() de Dana
+    if (normOld !== normNew) {
+      vfs.rename(normOld, normNew);
+    }
+
+    // Sobrescribir contenido con write()
+    const success = vfs.write(normNew, content);
+    if (!success) {
+      addLog({
+        level: 'ERROR',
+        source: 'VFS',
+        message: `Modificación fallida por falta de espacio al escribir en "${normNew}".`,
+      });
+      return { success: false, error: 'Espacio insuficiente al escribir' };
+    }
+
+    const fileData = vfs.files.get(normNew);
+
+    setVfsFiles((prev) =>
+      prev.map((f) =>
+        f.path === normOld
+          ? {
+              ...f,
+              path: normNew,
+              content: fileData.content,
+              size_bytes: fileData.size,
+              modified_at: new Date(fileData.modified).toISOString(),
+            }
+          : f
+      )
+    );
+
+    setVfsStats({ usedBytes: vfs.used(), capacityBytes: vfs.capacity });
+
+    addLog({
+      level: 'INFO',
+      source: 'VFS',
+      message: `Archivo modificado: "${normNew}" ${
+        normOld !== normNew ? `(renombrado desde "${normOld}")` : ''
+      } (${fileData.size} Bytes) mediante VirtualFileSystem.`,
+    });
+
+    return { success: true };
+  };
+
+  /**
+   * Eliminar archivo en VFS usando delete()
+   */
+  const deleteVfsFile = (path) => {
+    const vfs = vfsRef.current;
+    if (!vfs) return { success: false, error: 'VFS no inicializado' };
+
+    const normPath = VirtualFileSystem.norm(path);
+
+    if (!vfs.exists(normPath)) {
+      addLog({
+        level: 'ERROR',
+        source: 'VFS',
+        message: `Eliminación fallida: Archivo "${normPath}" no existe.`,
+      });
+      return { success: false, error: 'Archivo no encontrado' };
+    }
+
+    const deleted = vfs.delete(normPath);
+    if (deleted) {
+      // Si era un clip de vigilancia, remover de clips también
+      if (surveillanceStorageRef.current?.clips.has(normPath)) {
+        surveillanceStorageRef.current.clips.delete(normPath);
+        setSurveillanceClips((prev) => prev.filter((c) => c.path !== normPath));
+      }
+
+      setVfsFiles((prev) => prev.filter((f) => f.path !== normPath));
+      setVfsStats({ usedBytes: vfs.used(), capacityBytes: vfs.capacity });
+
+      addLog({
+        level: 'WARNING',
+        source: 'VFS',
+        message: `Archivo eliminado: "${normPath}" mediante VirtualFileSystem.delete().`,
+      });
+
+      return { success: true };
+    }
+
+    return { success: false, error: 'No se pudo eliminar el archivo' };
   };
 
   // Control de dispositivos
@@ -737,6 +930,9 @@ export const SystemProvider = ({ children }) => {
         compactMemory,
         freeMemoryBlock,
         createFile,
+        createVfsFile,
+        updateVfsFile,
+        deleteVfsFile,
         toggleDevice,
         simulateSensorDisconnected,
         simulateCommLoss,
