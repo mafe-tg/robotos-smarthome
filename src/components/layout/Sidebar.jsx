@@ -74,6 +74,18 @@ export const Sidebar = ({ currentScreen, onNavigate }) => {
         </svg>
       ),
     },
+    {
+      id: 'fault-injection',
+      name: 'Inyección de Fallos',
+      subtitle: 'Fault Injection Engine',
+      minRole: 'ADMIN', // Solo ADMIN
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          <circle cx="12" cy="12" r="9" strokeWidth={1.5} strokeDasharray="3 3" />
+        </svg>
+      ),
+    },
   ];
 
   const handleItemClick = (item) => {
@@ -113,6 +125,7 @@ export const Sidebar = ({ currentScreen, onNavigate }) => {
           {menuItems.map((item) => {
             const isActive = currentScreen === item.id;
             const isBlockedForGuest = role === 'GUEST' && item.minRole !== 'GUEST';
+            const isBlockedForUser = role === 'USER' && item.minRole === 'ADMIN';
 
             return (
               <button
@@ -121,7 +134,7 @@ export const Sidebar = ({ currentScreen, onNavigate }) => {
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all group ${
                   isActive
                     ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-sm'
-                    : isBlockedForGuest
+                    : isBlockedForGuest || isBlockedForUser
                     ? 'text-slate-600 hover:text-slate-400 hover:bg-slate-800/30 border border-transparent opacity-75'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
                 }`}
@@ -133,7 +146,7 @@ export const Sidebar = ({ currentScreen, onNavigate }) => {
                   <div>
                     <div className="flex items-center space-x-1.5">
                       <span className="text-xs font-semibold">{item.name}</span>
-                      {isBlockedForGuest && <span className="text-[10px]">🔒</span>}
+                      {(isBlockedForGuest || isBlockedForUser) && <span className="text-[10px]">🔒</span>}
                     </div>
                     <div className="text-[10px] text-slate-500">{item.subtitle}</div>
                   </div>

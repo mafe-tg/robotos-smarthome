@@ -370,7 +370,18 @@ export const TwinPage = () => {
         {/* Panel lateral del robot */}
         <div className="lg:w-56 shrink-0 space-y-4">
           <h3 className="text-sm font-bold text-white">Estado del Robot</h3>
-          <RobotPanel robot={twinState?.robot} summary={twinState?.summary} />
+          <RobotPanel
+            robot={{
+              ...twinState?.robot,
+              currentRoom: isPlaying ? robotRoom : twinState?.robot?.currentRoom,
+              runningProcess: isPlaying
+                ? (playbackProcess ? { name: playbackProcess } : null)
+                : twinState?.robot?.runningProcess,
+              cpuBusy: isPlaying ? true : twinState?.robot?.cpuBusy,
+              robotStatus: isPlaying ? 'WORKING' : twinState?.robot?.robotStatus,
+            }}
+            summary={twinState?.summary}
+          />
 
           {/* Procesos por zona (oculto para GUEST) */}
           {!isGuest && (

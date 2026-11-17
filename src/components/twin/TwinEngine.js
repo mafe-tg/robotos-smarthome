@@ -91,6 +91,19 @@ export function deriveTwinState({
     a.title?.toLowerCase().includes('autorizado') ||
     a.title?.toLowerCase().includes('intrusión')
   );
+  const hasDeadlock = activeAlerts.some((a) =>
+    a.title?.toLowerCase().includes('deadlock') ||
+    a.title?.toLowerCase().includes('interbloqueo')
+  );
+  const hasCpuOverload = cpuUsage > 80 || activeAlerts.some((a) =>
+    a.title?.toLowerCase().includes('sobrecarga') ||
+    a.title?.toLowerCase().includes('cpu')
+  );
+  const hasMemoryCorruption = activeAlerts.some((a) =>
+    a.title?.toLowerCase().includes('corrupción') ||
+    a.details?.toLowerCase().includes('paridad') ||
+    a.details?.toLowerCase().includes('checksum')
+  );
 
   const runningProcess = processes.find((p) => p.state === 'RUNNING') || null;
   const runningRoom    = runningProcess ? (PROCESS_ROOM[runningProcess.name] || 'base') : 'base';
@@ -99,7 +112,7 @@ export function deriveTwinState({
     rooms,
     deviceStates,
     robot: { ...robot, currentRoom: runningRoom, runningProcess },
-    globalAlerts: { hasCommLoss, hasUnauthorized, count: activeAlerts.length },
+    globalAlerts: { hasCommLoss, hasUnauthorized, hasDeadlock, hasCpuOverload, hasMemoryCorruption, count: activeAlerts.length },
     summary: {
       algorithm: systemSettings.scheduler_algorithm || 'PRIORIDAD',
       rr_quantum: systemSettings.rr_quantum || 2,
@@ -186,12 +199,13 @@ function deriveRobot(processes, memoryStats, alerts, batteryPercent, cpuUsage) {
   else if (hasActiveAlert) robotStatus = 'ALERT';
   else if (cpuBusy)        robotStatus = 'WORKING';
 
-  // ── Velocidad de movimiento: mayor CPU = más rápido; batería baja = más lento ──
-  // Intervalo base 1200 ms. cpuUsage (0-100) reduce hasta 500 ms.
-  // Batería < 30 % suma 400 ms de penalización.
-  const cpuFactor      = Math.max(0.4, 1 - (cpuUsage / 100) * 0.6); // 0.4 – 1.0
-  const batteryPenalty = batterLow ? 400 : 0;
-  const moveIntervalMs = Math.round(1200 * cpuFactor) + batteryPenalty;
+  // ── Velocidad de movimiento: a mayor uso de CPU o menor batería, más lento (mayor intervalo en ms) ──
+  // Base: 700 ms (en condiciones ideales: CPU baja y batería llena)
+  // Penalización por CPU: cpuUsage (0 a 100%) añade hasta 1100 ms de retraso por saturación
+  // Penalización por Batería: batería baja añade hasta 700 ms por degradación energética
+  const cpuPenalty     = Math.round((cpuUsage / 100) * 1100);
+  const batteryPenalty = Math.round(((100 - batteryPct) / 100) * 700);
+  const moveIntervalMs = 700 + cpuPenalty + batteryPenalty;
 
   return {
     batteryPct,
@@ -202,8 +216,8 @@ function deriveRobot(processes, memoryStats, alerts, batteryPercent, cpuUsage) {
     hasActiveAlert,
     robotStatus,
     moveIntervalMs,
-    cpuColor:     cpuBusy      ? '#10B981' : '#475569',
-    ramColor:     ramPct > 80  ? '#EF4444' : ramPct > 50 ? '#F59E0B' : '#10B981',
+    cpuColor:     cpuUsage > 80 ? '#EF4444' : cpuBusy ? '#10B981' : '#475569',
+    ramColor:     alerts.some(a => a.state === 'Activa' && a.title?.includes('Corrupción')) ? '#EF4444' : ramPct > 80  ? '#EF4444' : ramPct > 50 ? '#F59E0B' : '#10B981',
     batteryColor: batteryCritical ? '#EF4444' : batterLow ? '#F59E0B' : '#10B981',
     alertColor:   hasActiveAlert ? '#EF4444' : '#475569',
   };

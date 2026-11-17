@@ -1,8 +1,9 @@
 /**
  * HousePlanSVG.jsx — Plano SVG 2D de la casa de RobotOS SmartHome
  *
- * Fase 2: robot con movimiento animado CSS, leyenda y alertas movidas debajo del SVG.
- * Solo recibe twinState + robotRoom + transitionMs; no lee SystemContext.
+ * Muestra las habitaciones, dispositivos, el robot con movimiento animado,
+ * y los avisos reactivos de fallos inyectados (Pérdida de comunicación, Deadlock,
+ * Sobrecarga de CPU, Corrupción de memoria, Acceso no autorizado).
  */
 import React from 'react';
 import { STATE_COLORS, ROOM_FILL, GUEST_VISIBLE_DEVICES } from './TwinEngine';
@@ -35,7 +36,7 @@ export const ROBOT_ROOM_POS = {
   base:     { cx: 595, cy: 405 },
 };
 
-// ─── Leyenda (renderizada como HTML debajo del SVG) ──────────────────────────
+// ─── Leyenda ────────────────────────────────────────────────────────────────
 const LEGEND_ITEMS = [
   { color: STATE_COLORS.RUNNING,    label: 'RUNNING'   },
   { color: STATE_COLORS.READY,      label: 'READY'     },
@@ -50,18 +51,16 @@ export const HousePlanSVG = ({
   robotRoom = 'base',
   transitionMs = 900,
   role = 'ADMIN',
-  playbackTick = null,     // tick actual durante la reproducción (null = sin reproducción)
-  playbackProcess = null,  // nombre del proceso en el tick actual
+  playbackTick = null,
+  playbackProcess = null,
 }) => {
   if (!twinState) return null;
 
   const { rooms, deviceStates, globalAlerts } = twinState;
   const isGuest = role === 'GUEST';
 
-  // Posición actual del robot (animada por CSS)
   const robotPos = ROBOT_ROOM_POS[robotRoom] || ROBOT_ROOM_POS.base;
 
-  // Dispositivos visibles según rol
   const visibleDevices = isGuest
     ? (deviceStates || []).filter((d) => GUEST_VISIBLE_DEVICES.has(d.id))
     : (deviceStates || []);
@@ -104,7 +103,6 @@ export const HousePlanSVG = ({
           const fill   = ROOM_FILL[state]        || ROOM_FILL.TERMINATED;
           const stroke = STATE_COLORS[state]     || STATE_COLORS.TERMINATED;
           const isRunning = state === 'RUNNING';
-          // GUEST no ve Entrada ni Exterior
           const guestHidden = isGuest && (roomId === 'entrada' || roomId === 'exterior');
 
           return (
@@ -272,7 +270,7 @@ export const HousePlanSVG = ({
         </g>
       </svg>
 
-      {/* ── Leyenda (debajo del SVG, fuera del elemento SVG) ── */}
+      {/* ── Leyenda (debajo del SVG) ── */}
       <div className="flex flex-wrap gap-x-5 gap-y-1.5 px-2">
         {LEGEND_ITEMS.map((item) => (
           <div key={item.label} className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
@@ -282,10 +280,25 @@ export const HousePlanSVG = ({
         ))}
       </div>
 
-      {/* ── Aviso de pérdida de comunicación (debajo del SVG) ── */}
+      {/* ── Avisos de fallos globales del sistema (debajo del SVG) ── */}
       {globalAlerts?.hasCommLoss && (
         <div className="px-3 py-2 rounded-xl bg-red-950/30 border border-red-700/50 text-xs font-mono text-red-300 animate-pulse">
           ⚠️ PÉRDIDA DE COMUNICACIÓN DETECTADA — Dispositivos pueden quedar sin respuesta
+        </div>
+      )}
+      {globalAlerts?.hasDeadlock && (
+        <div className="px-3 py-2 rounded-xl bg-purple-950/40 border border-purple-700/60 text-xs font-mono text-purple-300 animate-pulse">
+          🔒 INTERBLOQUEO (DEADLOCK) DETECTADO — Espera circular activa entre procesos del sistema
+        </div>
+      )}
+      {globalAlerts?.hasCpuOverload && (
+        <div className="px-3 py-2 rounded-xl bg-amber-950/40 border border-amber-700/60 text-xs font-mono text-amber-300 animate-pulse">
+          🔥 SOBRECARGA CRÍTICA DE CPU (&gt;90%) — Throttling reactivo y degradación de ráfagas
+        </div>
+      )}
+      {globalAlerts?.hasMemoryCorruption && (
+        <div className="px-3 py-2 rounded-xl bg-red-950/40 border border-red-700/60 text-xs font-mono text-red-300 animate-pulse">
+          💥 CORRUPCIÓN DE MEMORIA — Fallo de paridad CRC en segmento de datos RAM
         </div>
       )}
     </div>

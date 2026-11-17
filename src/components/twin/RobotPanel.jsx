@@ -7,7 +7,7 @@
 import React from 'react';
 
 export const RobotPanel = ({ robot, summary }) => {
-  const { batteryPct, ramPct, cpuBusy, hasActiveAlert, robotStatus,
+  const { batteryPct, ramPct, cpuBusy, cpuUsage, hasActiveAlert, robotStatus,
           cpuColor, ramColor, batteryColor, alertColor,
           runningProcess, currentRoom } = robot || {};
 
@@ -65,7 +65,9 @@ export const RobotPanel = ({ robot, summary }) => {
           <animate attributeName="opacity" values="1;0.2;1" dur="2s" repeatCount="indefinite" />
         </circle>
         {/* Etiqueta CPU */}
-        <text x="60" y="30" textAnchor="middle" fontSize="7" fill="#94A3B8" fontFamily="monospace">CPU</text>
+        <text x="60" y="30" textAnchor="middle" fontSize="7" fill="#94A3B8" fontFamily="monospace">
+          {cpuUsage ? `${cpuUsage}%` : 'CPU'}
+        </text>
 
         {/* Torso / RAM */}
         <rect x="25" y="52" width="70" height="52" rx="6"
@@ -113,6 +115,7 @@ export const RobotPanel = ({ robot, summary }) => {
 
       {/* Métricas compactas */}
       <div className="space-y-2">
+        <Metric label="CPU" value={`${cpuUsage ?? 28}%`} color={cpuColor} pct={cpuUsage ?? 28} />
         <Metric label="Batería" value={`${batteryPct ?? 0}%`} color={batteryColor} pct={batteryPct} />
         <Metric label="RAM" value={`${ramPct ?? 0}%`} color={ramColor} pct={ramPct} />
         <div className="flex justify-between text-[10px] font-mono text-slate-500 pt-1 border-t border-slate-800">
