@@ -151,6 +151,7 @@ export const MemoryPage = () => {
       size: b.size,
       owner: b.owner,
       id: b.id,
+      corrupted: Boolean(b.corrupted),
       style: getBlockStyle(b.owner),
     });
     cursor = b.start + b.size;
@@ -379,17 +380,19 @@ export const MemoryPage = () => {
                   style={{ width: `${widthPct}%` }}
                   className={`h-full rounded-lg transition-all flex flex-col items-center justify-center relative group cursor-pointer ${
                     isAlloc
-                      ? `${seg.style.bg} ${seg.style.border} border shadow-sm`
+                      ? seg.corrupted
+                        ? 'bg-red-600/90 border-red-500 border shadow-lg shadow-red-950/60 animate-pulse text-white'
+                        : `${seg.style.bg} ${seg.style.border} border shadow-sm`
                       : 'bg-slate-950/80 border border-dashed border-slate-800 text-slate-600 hover:border-slate-700'
                   }`}
                   title={`${seg.owner}: ${seg.start} KB a ${seg.start + seg.size - 1} KB (${seg.size} KB)`}
                 >
                   <span
                     className={`text-[10px] font-mono font-bold truncate px-1 ${
-                      isAlloc ? seg.style.text : 'text-slate-500'
+                      isAlloc ? (seg.corrupted ? 'text-white' : seg.style.text) : 'text-slate-500'
                     }`}
                   >
-                    {widthPct > 5 ? seg.owner : ''}
+                    {seg.corrupted ? '💥 CORRUPTO' : widthPct > 5 ? seg.owner : ''}
                   </span>
                   <span className="text-[9px] font-mono text-slate-400">
                     {widthPct > 8 ? `${seg.size} KB` : ''}

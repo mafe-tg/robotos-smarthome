@@ -38,6 +38,29 @@ export const FaultInjectionPage = ({ onNavigate }) => {
 
   const isAdmin = role === 'ADMIN';
 
+  const formatTargetDisplay = (tgt) => {
+    if (!tgt) return 'Sistema';
+    if (typeof tgt === 'object') {
+      const pA = processes?.find((p) => p.name === tgt.processA || String(p.pid) === tgt.processA)?.name || tgt.processA || 'P1';
+      const pB = processes?.find((p) => p.name === tgt.processB || String(p.pid) === tgt.processB)?.name || tgt.processB || 'P2';
+      return `${pA} ⇄ ${pB}`;
+    }
+    const dev = devices?.find((d) => d.id === tgt || d.name === tgt);
+    if (dev) return dev.name;
+    const proc = processes?.find((p) => p.name === tgt || String(p.pid) === tgt);
+    if (proc) return proc.name;
+    const blk = memoryBlocks?.find((b) => b.id === tgt || b.owner === tgt);
+    if (blk) return `${blk.owner} (${blk.id})`;
+    return String(tgt);
+  };
+
+  const formatModeDisplay = (m) => {
+    if (m === 'ISOLATED' || m === 'Aislado') return 'Aislado';
+    if (m === 'COMBINED' || m === 'Combinado') return 'Combinado';
+    if (m === 'PROGRESSIVE' || m === 'Progresivo') return 'Progresivo';
+    return m || 'Aislado';
+  };
+
   // ─── Estados de Navegación y Modos ─────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' | 'scenarios' | 'history'
   const [injectionMode, setInjectionMode] = useState('ISOLATED'); // 'ISOLATED' | 'COMBINED' | 'PROGRESSIVE'
@@ -109,10 +132,10 @@ export const FaultInjectionPage = ({ onNavigate }) => {
       id: `act_${Date.now()}`,
       faultId,
       faultName: FAULT_CATALOG.find((f) => f.id === faultId)?.name,
-      target: typeof target === 'object' ? `${target.processA} ⇄ ${target.processB}` : target,
+      target: formatTargetDisplay(target),
       intensity,
       duration,
-      mode: 'ISOLATED',
+      mode: 'Aislado',
       startTime: Date.now(),
       status: 'INYECTADO',
       step: 0,
@@ -174,10 +197,10 @@ export const FaultInjectionPage = ({ onNavigate }) => {
       id: `act_${Date.now()}_${cfg.faultId}`,
       faultId: cfg.faultId,
       faultName: FAULT_CATALOG.find((f) => f.id === cfg.faultId)?.name,
-      target: typeof cfg.target === 'object' ? `${cfg.target.processA} ⇄ ${cfg.target.processB}` : cfg.target,
+      target: formatTargetDisplay(cfg.target),
       intensity: cfg.intensity,
       duration: cfg.duration,
-      mode: 'COMBINED',
+      mode: 'Combinado',
       startTime: Date.now(),
       status: 'INYECTADO',
       step: 0,
@@ -221,10 +244,10 @@ export const FaultInjectionPage = ({ onNavigate }) => {
       id: `act_prog_${Date.now()}`,
       faultId: primaryFaultId,
       faultName: FAULT_CATALOG.find((f) => f.id === primaryFaultId)?.name,
-      target: typeof target === 'object' ? `${target.processA} ⇄ ${target.processB}` : target,
+      target: formatTargetDisplay(target),
       intensity: 'Progresiva (1→2→3)',
       duration,
-      mode: 'PROGRESSIVE',
+      mode: 'Progresivo',
       startTime: Date.now(),
       status: 'INYECTADO',
       step: 0,
@@ -566,8 +589,8 @@ export const FaultInjectionPage = ({ onNavigate }) => {
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-400">
-                  Objetivo: <strong className="text-cyan-300">{act.target}</strong> · Modo:{' '}
-                  {act.mode} · Intensidad: {act.intensity}
+                  Objetivo: <strong className="text-cyan-300">{formatTargetDisplay(act.target)}</strong> · Modo:{' '}
+                  {formatModeDisplay(act.mode)} · Intensidad: {act.intensity}
                 </div>
                 {/* Barra de progreso de autorrecuperación */}
                 <div className="space-y-1">
@@ -874,7 +897,7 @@ export const FaultInjectionPage = ({ onNavigate }) => {
                     <div>
                       <h4 className="text-sm font-bold text-white">{scen.name}</h4>
                       <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-purple-950/60 text-purple-300 border border-purple-800/60">
-                        Modo {scen.mode} · {scen.faults?.length || 1} fallo(s)
+                        Modo {formatModeDisplay(scen.mode)} · {scen.faults?.length || 1} fallo(s)
                       </span>
                     </div>
 
@@ -985,11 +1008,11 @@ export const FaultInjectionPage = ({ onNavigate }) => {
                       </td>
                       <td className="py-3 px-3">
                         <span className="px-1.5 py-0.5 rounded text-[9px] bg-slate-800 text-slate-300 border border-slate-700">
-                          {rec.mode}
+                          {formatModeDisplay(rec.mode)}
                         </span>
                       </td>
                       <td className="py-3 px-3 text-cyan-300 font-medium truncate max-w-xs">
-                        {rec.target}
+                        {formatTargetDisplay(rec.target)}
                       </td>
                       <td className="py-3 px-3 text-amber-400 font-bold">
                         {rec.detectionTimeMs ? `${rec.detectionTimeMs} ms` : 'En análisis...'}

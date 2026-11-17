@@ -199,12 +199,13 @@ function deriveRobot(processes, memoryStats, alerts, batteryPercent, cpuUsage) {
   else if (hasActiveAlert) robotStatus = 'ALERT';
   else if (cpuBusy)        robotStatus = 'WORKING';
 
-  // ── Velocidad de movimiento: mayor CPU = más rápido; batería baja = más lento ──
-  // Intervalo base 1200 ms. cpuUsage (0-100) reduce hasta 500 ms.
-  // Batería < 30 % suma 400 ms de penalización.
-  const cpuFactor      = Math.max(0.4, 1 - (cpuUsage / 100) * 0.6); // 0.4 – 1.0
-  const batteryPenalty = batterLow ? 400 : 0;
-  const moveIntervalMs = Math.round(1200 * cpuFactor) + batteryPenalty;
+  // ── Velocidad de movimiento: a mayor uso de CPU o menor batería, más lento (mayor intervalo en ms) ──
+  // Base: 700 ms (en condiciones ideales: CPU baja y batería llena)
+  // Penalización por CPU: cpuUsage (0 a 100%) añade hasta 1100 ms de retraso por saturación
+  // Penalización por Batería: batería baja añade hasta 700 ms por degradación energética
+  const cpuPenalty     = Math.round((cpuUsage / 100) * 1100);
+  const batteryPenalty = Math.round(((100 - batteryPct) / 100) * 700);
+  const moveIntervalMs = 700 + cpuPenalty + batteryPenalty;
 
   return {
     batteryPct,

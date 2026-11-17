@@ -107,6 +107,29 @@ export function executeSingleFault({
   // Simulación de latencia de interrupción y detección por el kernel (180ms - 420ms)
   const detectionLatencyMs = Math.round(180 + Math.random() * 240);
 
+  // Resolución de nombres amigables en español
+  const resolveTargetName = (t) => {
+    if (!t) return 'Sistema';
+    if (typeof t === 'object') return `${t.processA || 'Proceso A'} ⇄ ${t.processB || 'Proceso B'}`;
+    const dev = devices?.find((d) => d.id === t || d.name === t);
+    if (dev) return dev.name;
+    const proc = processes?.find((p) => p.name === t || String(p.pid) === t);
+    if (proc) return proc.name;
+    return String(t);
+  };
+
+  const MODE_SPANISH = {
+    ISOLATED: 'Aislado',
+    COMBINED: 'Combinado',
+    PROGRESSIVE: 'Progresivo',
+    Aislado: 'Aislado',
+    Combinado: 'Combinado',
+    Progresivo: 'Progresivo',
+  };
+
+  const resolvedTarget = resolveTargetName(target);
+  const resolvedMode = MODE_SPANISH[mode] || mode;
+
   // Registro inicial en el historial
   const initialRecord = {
     id: injectionId,
@@ -114,8 +137,8 @@ export function executeSingleFault({
     faultName: faultDef.name,
     category: faultDef.category,
     icon: faultDef.icon,
-    mode,
-    target: typeof target === 'object' ? `${target.processA} ⇄ ${target.processB}` : String(target),
+    mode: resolvedMode,
+    target: resolvedTarget,
     intensity,
     duration,
     timestamp: new Date().toLocaleTimeString('es-CO', {
