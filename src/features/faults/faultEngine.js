@@ -16,7 +16,12 @@ import {
   detectDeadlockInRAG,
   resolveDeadlockByPriority,
 } from './deadlockModule';
-import { generateUUID, persistFaultInjection, fetchFaultHistory } from '../../lib/persistence';
+import {
+  generateUUID,
+  persistFaultInjection,
+  fetchFaultHistory,
+  persistSecurityEvent,
+} from '../../lib/persistence';
 
 const HISTORY_KEY = 'robotos_fault_injection_history_v1';
 
@@ -225,6 +230,12 @@ export function executeSingleFault({
         prev.map((d) => (d.type === 'lock' ? { ...d, status: 'BLOQUEADA' } : d))
       );
     }
+    persistSecurityEvent({
+      event_type: 'UNAUTHORIZED_ACCESS',
+      severity: 'CRITICAL',
+      description: `Inyección de fallo (${resolvedMode}): intento de acceso no autorizado en "${targetDevice?.name || 'Entrada'}".`,
+      deviceName: targetDevice?.name || null,
+    });
     if (setProcesses) {
       setProcesses((prev) =>
         prev.map((p) =>

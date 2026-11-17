@@ -28,7 +28,17 @@ import {
 
 // Cliente de Supabase
 import { supabase } from '../lib/supabase';
-import { persistLog, emitSystemEvent } from '../lib/persistence';
+import {
+  persistLog,
+  emitSystemEvent,
+  syncProcess,
+  syncMemorySnapshot,
+  syncFileUpsert,
+  syncFileDelete,
+  syncDeviceStatus,
+  deviceConnectionStatus,
+  persistSecurityEvent,
+} from '../lib/persistence';
 
 const SystemContext = createContext();
 
@@ -48,6 +58,18 @@ const OWNER_COLORS = {
 };
 
 const getOwnerColor = (owner) => OWNER_COLORS[owner] || '#06B6D4';
+
+// ─── Firmas para detectar cambios y sincronizarlos con Supabase (Fase B) ───
+// Se comparan con el estado anterior para registrar solo lo que cambió,
+// venga de la interfaz o del motor de inyección de fallos.
+const processSignature = (p) => `${p.state}|${p.prioridadNum}`;
+const processSignatures = (list) => new Map(list.map((p) => [p.pid, processSignature(p)]));
+const memorySignature = (blocks, withCorruption = true) =>
+  [...blocks]
+    .sort((a, b) => a.start - b.start)
+    .map((b) => `${b.owner}@${b.start}+${b.size}${withCorruption && b.corrupted ? '!' : ''}`)
+    .join(',');
+const deviceStatuses = (list) => new Map(list.map((d) => [d.id, d.status]));
 
 export const SystemProvider = ({ children }) => {
   // Instancias de los módulos de Dana (mantienen el modelo operativo en memoria viva)
@@ -132,19 +154,28 @@ export const SystemProvider = ({ children }) => {
   // 7. Modificador dinámico de CPU para inyección de fallos
   const [cpuUsageOverride, setCpuUsageOverride] = useState(null);
 
-  // Carga asíncrona desde Supabase al montar el componente (solo lectura remota)
+  // 8. Estado anterior, para detectar qué cambió y guardarlo en Supabase (Fase B)
+  const prevProcessesRef = useRef(processSignatures(INITIAL_PROCESSES));
+  const prevMemoryRef = useRef({
+    signature: memorySignature(memoryManagerRef.current ? memoryManagerRef.current.blocks : []),
+    blocks: memoryManagerRef.current ? memoryManagerRef.current.blocks.map((b) => ({ ...b })) : [],
+  });
+  const prevDevicesRef = useRef(deviceStatuses(INITIAL_DEVICES));
+
+  // Carga asíncrona desde Supabase al montar el componente
   useEffect(() => {
     let isMounted = true;
 
     const loadSupabaseData = async () => {
       try {
-        const [memRes, filesRes, logsRes, clipsRes, energyDevRes, energyUsageRes] = await Promise.all([
+        const [memRes, filesRes, logsRes, clipsRes, energyDevRes, energyUsageRes, procRes] = await Promise.all([
           supabase.from('memory_blocks').select('*').order('start_kb', { ascending: true }),
           supabase.from('files').select('*'),
-          supabase.from('logs').select('*').order('id', { ascending: false }),
+          supabase.from('logs').select('*').order('id', { ascending: false }).limit(100),
           supabase.from('surveillance_clips').select('*'),
           supabase.from('energy_devices').select('*'),
           supabase.from('energy_usage').select('*'),
+          supabase.from('processes').select('*').order('pid', { ascending: true }),
         ]);
 
         if (!isMounted) return;
@@ -158,13 +189,63 @@ export const SystemProvider = ({ children }) => {
             size: b.size_kb,
             owner: b.owner,
           }));
+          // Lo que viene de Supabase no es un cambio nuevo: no se vuelve a guardar
+          prevMemoryRef.current = {
+            signature: memorySignature(mm.blocks),
+            blocks: mm.blocks.map((b) => ({ ...b })),
+          };
           setMemoryBlocks([...mm.blocks]);
           setMemoryStats(mm.stats());
         }
 
-        // 2. Alimentar VirtualFileSystem
+        // 1b. Recuperar los procesos guardados en Supabase (estado, prioridad y
+        // procesos creados por el usuario en sesiones anteriores)
+        if (procRes.data && procRes.data.length > 0) {
+          setProcesses((prev) => {
+            const byPid = new Map(procRes.data.map((r) => [r.pid, r]));
+            const merged = prev.map((p) => {
+              const row = byPid.get(p.pid);
+              if (!row) return p;
+              byPid.delete(p.pid);
+              return {
+                ...p,
+                state: row.state,
+                prioridadNum: row.priority,
+                priority: PRIORITY_LABEL[row.priority] || p.priority,
+                cpu: Number(row.cpu_usage),
+                memoryKb: row.memory_kb,
+                memory: row.memory_kb,
+                tiempoTotal: row.total_ticks,
+              };
+            });
+            for (const row of byPid.values()) {
+              merged.push({
+                id: `p_db_${row.pid}`,
+                pid: row.pid,
+                name: row.name,
+                state: row.state,
+                priority: PRIORITY_LABEL[row.priority] || 'Media',
+                prioridadNum: row.priority,
+                tiempoTotal: row.total_ticks,
+                memoryKb: row.memory_kb,
+                memory: row.memory_kb,
+                cpu: Number(row.cpu_usage),
+                color: getOwnerColor(row.name),
+                isSystem: row.is_system,
+                description: row.is_system
+                  ? 'Proceso del sistema'
+                  : 'Proceso de usuario recuperado de Supabase',
+              });
+            }
+            prevProcessesRef.current = processSignatures(merged);
+            return merged;
+          });
+        }
+
+        // 2. Alimentar VirtualFileSystem (Supabase es la fuente de verdad)
         if (filesRes.data && filesRes.data.length > 0) {
           const vfs = vfsRef.current;
+          vfs.files.clear();
           for (const f of filesRes.data) {
             vfs.write(f.path, f.content || '', { size: f.size_bytes });
           }
@@ -175,6 +256,7 @@ export const SystemProvider = ({ children }) => {
         // 3. Alimentar SurveillanceStorage
         if (clipsRes.data && clipsRes.data.length > 0) {
           const ss = surveillanceStorageRef.current;
+          ss.clips.clear();
           for (const c of clipsRes.data) {
             ss.clips.set(c.path, {
               camera: c.camera_id,
@@ -232,6 +314,162 @@ export const SystemProvider = ({ children }) => {
       isMounted = false;
     };
   }, []);
+
+  // ==========================================
+  // SINCRONIZACIÓN CON SUPABASE (FASE B)
+  // Cada efecto compara el estado nuevo con el anterior y guarda solo lo
+  // que cambió. Así se registran tanto las acciones de la interfaz como
+  // las del motor de inyección de fallos, sin tocar cada función.
+  // ==========================================
+
+  // Procesos: creación, cambio de estado y cambio de prioridad
+  useEffect(() => {
+    const prev = prevProcessesRef.current;
+    for (const p of processes) {
+      const signature = processSignature(p);
+      const old = prev.get(p.pid);
+      if (old === signature) continue;
+
+      syncProcess(p);
+
+      if (old === undefined) {
+        emitSystemEvent({
+          event_type: 'PROCESS_CREATED',
+          source: 'PROCESS_MGR',
+          description: `Proceso ${p.name} (PID ${p.pid}) creado en estado ${p.state}`,
+          details: {
+            pid: p.pid,
+            name: p.name,
+            state: p.state,
+            priority: p.prioridadNum,
+            memory_kb: p.memoryKb ?? p.memory,
+            cpu: p.cpu,
+            total_ticks: p.tiempoTotal,
+          },
+        });
+        continue;
+      }
+
+      const [oldState, oldPriority] = old.split('|');
+      if (oldState !== p.state) {
+        emitSystemEvent({
+          event_type: 'PROCESS_STATE_CHANGE',
+          source: 'SCHEDULER',
+          severity: p.state === ESTADOS.TERMINATED ? 'WARNING' : 'INFO',
+          description: `Proceso ${p.name} (PID ${p.pid}): ${oldState} -> ${p.state}`,
+          details: { pid: p.pid, name: p.name, previous_state: oldState, new_state: p.state },
+        });
+      }
+      if (oldPriority !== String(p.prioridadNum)) {
+        emitSystemEvent({
+          event_type: 'PROCESS_PRIORITY_CHANGE',
+          source: 'SCHEDULER',
+          description: `Proceso ${p.name} (PID ${p.pid}): prioridad ${oldPriority} -> ${p.prioridadNum}`,
+          details: {
+            pid: p.pid,
+            name: p.name,
+            previous_priority: Number(oldPriority),
+            new_priority: p.prioridadNum,
+          },
+        });
+      }
+    }
+    prevProcessesRef.current = processSignatures(processes);
+  }, [processes]);
+
+  // Memoria: asignación, liberación, compactación y corrupción de bloques
+  useEffect(() => {
+    const signature = memorySignature(memoryBlocks);
+    const previous = prevMemoryRef.current;
+    if (signature === previous.signature) return;
+
+    const before = new Map(previous.blocks.map((b) => [b.owner, b]));
+    const after = new Map(memoryBlocks.map((b) => [b.owner, b]));
+    const moved = [];
+
+    for (const [owner, b] of after) {
+      const old = before.get(owner);
+      if (!old) {
+        emitSystemEvent({
+          event_type: 'MEMORY_ALLOCATE',
+          source: 'MEM_MANAGER',
+          description: `Asignados ${b.size} KB a ${owner} en [${b.start}..${b.start + b.size - 1} KB]`,
+          details: { action: 'ALLOCATE', owner, start_kb: b.start, size_kb: b.size },
+        });
+        continue;
+      }
+      if (old.start !== b.start) moved.push({ owner, from_kb: old.start, to_kb: b.start, size_kb: b.size });
+      if (!old.corrupted && b.corrupted) {
+        emitSystemEvent({
+          event_type: 'MEMORY_CORRUPTION',
+          source: 'MEM_MANAGER',
+          severity: 'ERROR',
+          description: `Bloque de ${owner} marcado como corrupto`,
+          details: { action: 'CORRUPT', owner, start_kb: b.start, size_kb: b.size },
+        });
+      } else if (old.corrupted && !b.corrupted) {
+        emitSystemEvent({
+          event_type: 'MEMORY_RECOVERED',
+          source: 'MEM_MANAGER',
+          description: `Bloque de ${owner} recuperado`,
+          details: { action: 'RECOVER', owner, start_kb: b.start, size_kb: b.size },
+        });
+      }
+    }
+
+    for (const [owner, b] of before) {
+      if (!after.has(owner)) {
+        emitSystemEvent({
+          event_type: 'MEMORY_FREE',
+          source: 'MEM_MANAGER',
+          description: `Liberados ${b.size} KB de ${owner}`,
+          details: { action: 'FREE', owner, start_kb: b.start, freed_kb: b.size },
+        });
+      }
+    }
+
+    if (moved.length > 0) {
+      emitSystemEvent({
+        event_type: 'MEMORY_COMPACT',
+        source: 'MEM_MANAGER',
+        description: `Compactación: ${moved.length} bloque(s) reubicados`,
+        details: { action: 'COMPACT', moved_blocks: moved },
+      });
+    }
+
+    // Guardar la foto del mapa solo si cambió la distribución (no por la marca de corrupción)
+    if (memorySignature(memoryBlocks, false) !== memorySignature(previous.blocks, false)) {
+      syncMemorySnapshot(memoryBlocks);
+    }
+
+    prevMemoryRef.current = { signature, blocks: memoryBlocks.map((b) => ({ ...b })) };
+  }, [memoryBlocks]);
+
+  // Dispositivos: cambios de estado (encendido, bloqueo, conexión)
+  useEffect(() => {
+    const prev = prevDevicesRef.current;
+    for (const d of devices) {
+      const old = prev.get(d.id);
+      if (old === undefined || old === d.status) continue;
+      syncDeviceStatus(d);
+      emitSystemEvent({
+        event_type: 'DEVICE_STATUS_CHANGE',
+        source: 'IOT_MANAGER',
+        severity: d.status === 'OFFLINE' ? 'WARNING' : 'INFO',
+        description: `${d.name}: ${old} -> ${d.status}`,
+        details: {
+          device_id: d.id,
+          device_name: d.name,
+          type: d.type,
+          zone: d.zone,
+          old_status: old,
+          new_status: d.status,
+          connection: deviceConnectionStatus(d),
+        },
+      });
+    }
+    prevDevicesRef.current = deviceStatuses(devices);
+  }, [devices]);
 
   const activeAlertsCount = alerts.filter((a) => a.state === 'Activa').length;
 
@@ -657,6 +895,14 @@ export const SystemProvider = ({ children }) => {
     setVfsFiles((prev) => [...prev, newFile]);
     setVfsStats({ usedBytes: vfs.used(), capacityBytes: vfs.capacity });
 
+    syncFileUpsert({ path: normPath, content: fileData.content, size_bytes: fileData.size });
+    emitSystemEvent({
+      event_type: 'FILE_CREATE',
+      source: 'VFS',
+      description: `Archivo creado: ${normPath}`,
+      details: { operation: 'CREATE', path: normPath, size_bytes: fileData.size },
+    });
+
     addLog({
       level: 'INFO',
       source: 'VFS',
@@ -719,6 +965,21 @@ export const SystemProvider = ({ children }) => {
 
     setVfsStats({ usedBytes: vfs.used(), capacityBytes: vfs.capacity });
 
+    if (normOld !== normNew) syncFileDelete(normOld);
+    syncFileUpsert({ path: normNew, content: fileData.content, size_bytes: fileData.size });
+    emitSystemEvent({
+      event_type: normOld !== normNew ? 'FILE_RENAME' : 'FILE_WRITE',
+      source: 'VFS',
+      description:
+        normOld !== normNew ? `Archivo renombrado: ${normOld} -> ${normNew}` : `Archivo modificado: ${normNew}`,
+      details: {
+        operation: normOld !== normNew ? 'RENAME' : 'WRITE',
+        path: normNew,
+        previous_path: normOld,
+        size_bytes: fileData.size,
+      },
+    });
+
     addLog({
       level: 'INFO',
       source: 'VFS',
@@ -751,10 +1012,20 @@ export const SystemProvider = ({ children }) => {
     const deleted = vfs.delete(normPath);
     if (deleted) {
       // Si era un clip de vigilancia, remover de clips también
-      if (surveillanceStorageRef.current?.clips.has(normPath)) {
+      const isClip = !!surveillanceStorageRef.current?.clips.has(normPath);
+      if (isClip) {
         surveillanceStorageRef.current.clips.delete(normPath);
         setSurveillanceClips((prev) => prev.filter((c) => c.path !== normPath));
       }
+
+      syncFileDelete(normPath, { isClip });
+      emitSystemEvent({
+        event_type: 'FILE_DELETE',
+        source: 'VFS',
+        severity: 'WARNING',
+        description: `Archivo eliminado: ${normPath}`,
+        details: { operation: 'DELETE', path: normPath, was_clip: isClip },
+      });
 
       setVfsFiles((prev) => prev.filter((f) => f.path !== normPath));
       setVfsStats({ usedBytes: vfs.used(), capacityBytes: vfs.capacity });
@@ -823,6 +1094,13 @@ export const SystemProvider = ({ children }) => {
     setDevices((prev) =>
       prev.map((d) => (d.id === id ? { ...d, status: 'OFFLINE' } : d))
     );
+
+    persistSecurityEvent({
+      event_type: 'DEVICE_STOPPED',
+      severity: 'WARNING',
+      description: `Dispositivo "${target.name}" detenido por el administrador.`,
+      deviceName: target.name,
+    });
 
     addLog({
       level: 'WARNING',
@@ -906,6 +1184,13 @@ export const SystemProvider = ({ children }) => {
     setDevices((prev) =>
       prev.map((d) => (d.type === 'lock' ? { ...d, status: 'BLOQUEADA' } : d))
     );
+
+    persistSecurityEvent({
+      event_type: 'UNAUTHORIZED_ACCESS',
+      severity: 'CRITICAL',
+      description: '3 intentos erróneos consecutivos de desbloqueo; cerradura asegurada y vigilancia elevada a prioridad crítica.',
+      deviceName: 'Cerradura Puerta Principal',
+    });
 
     addLog({
       level: 'ERROR',

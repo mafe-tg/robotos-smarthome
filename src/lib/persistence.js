@@ -371,3 +371,183 @@ export async function fetchFaultHistory(limit = 50) {
     return [];
   }
 }
+
+// ─── 4. Sincronización del estado operativo (Fase B) ────────────────────────
+// Procesos, memoria, archivos, dispositivos y eventos de seguridad.
+
+const PRIORITY_NUM = { 'Crítica': 1, Alta: 2, Media: 3, Baja: 4 };
+const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+
+/**
+ * Intenta ejecutar la operación de inmediato; si falla, la deja en la cola
+ * de reintentos para que el sistema nunca se bloquee por Supabase.
+ */
+function sendOrQueue(task) {
+  (async () => {
+    try {
+      const { error } = await persistenceQueue.executeTask(task);
+      if (error) persistenceQueue.enqueue(task);
+    } catch {
+      persistenceQueue.enqueue(task);
+    }
+  })();
+}
+
+/** Convierte un proceso del dashboard a una fila de la tabla processes. */
+export function processToRow(p) {
+  const total = Math.max(1, Number(p.tiempoTotal) || 1);
+  return {
+    pid: Number(p.pid),
+    name: String(p.name),
+    priority: clamp(Number(p.prioridadNum) || PRIORITY_NUM[p.priority] || 3, 1, 4),
+    state: p.state,
+    cpu_usage: clamp(Number(p.cpu) || 0, 0, 100),
+    memory_kb: Math.max(0, Number(p.memoryKb ?? p.memory) || 0),
+    total_ticks: total,
+    remaining_ticks: p.state === 'TERMINATED' ? 0 : total,
+    is_system: !!p.isSystem,
+  };
+}
+
+/** Crea o actualiza un proceso en la tabla processes (clave: pid). */
+export function syncProcess(p) {
+  if (!p || p.pid === undefined) return;
+  sendOrQueue({
+    type: 'SYNC_PROCESS',
+    table: 'processes',
+    action: 'upsert',
+    onConflict: 'pid',
+    payload: processToRow(p),
+  });
+}
+
+/**
+ * Guarda una "foto" del mapa de memoria en memory_blocks.
+ * Espera 400 ms para agrupar cambios seguidos y ejecuta las escrituras en
+ * orden: primero inserta los bloques nuevos y después borra los antiguos,
+ * así la tabla nunca queda vacía si algo falla a mitad de camino.
+ */
+let memoryChain = Promise.resolve();
+let memoryTimer = null;
+let pendingMemoryRows = null;
+
+export function syncMemorySnapshot(blocks) {
+  pendingMemoryRows = (blocks || [])
+    .filter((b) => b && b.owner && Number(b.size) > 0)
+    .map((b) => ({ owner: b.owner, start_kb: Number(b.start), size_kb: Number(b.size) }));
+
+  clearTimeout(memoryTimer);
+  memoryTimer = setTimeout(() => {
+    const rows = pendingMemoryRows;
+    memoryChain = memoryChain.then(() => writeMemorySnapshot(rows)).catch(() => {});
+  }, 400);
+}
+
+async function writeMemorySnapshot(rows) {
+  try {
+    let keepIds = [];
+    if (rows.length > 0) {
+      const { data, error } = await supabase.from('memory_blocks').insert(rows).select('id');
+      if (error) {
+        console.warn('[Persistence] No se pudo guardar el mapa de memoria:', error.message);
+        return;
+      }
+      keepIds = (data || []).map((r) => r.id);
+    }
+    let query = supabase.from('memory_blocks').delete();
+    query = keepIds.length > 0 ? query.not('id', 'in', `(${keepIds.join(',')})`) : query.gte('id', 0);
+    const { error } = await query;
+    if (error) console.warn('[Persistence] No se pudieron limpiar bloques antiguos:', error.message);
+  } catch (err) {
+    console.warn('[Persistence] Error sincronizando memoria:', err);
+  }
+}
+
+/** Crea o actualiza un archivo del VFS en la tabla files (clave: path). */
+export function syncFileUpsert({ path, content = '', size_bytes = 0 }) {
+  if (!path) return;
+  sendOrQueue({
+    type: 'SYNC_FILE',
+    table: 'files',
+    action: 'upsert',
+    onConflict: 'path',
+    payload: {
+      path,
+      content: String(content),
+      size_bytes: Math.max(0, Number(size_bytes) || 0),
+      modified_at: new Date().toISOString(),
+    },
+  });
+}
+
+/** Elimina un archivo de la tabla files (y de surveillance_clips si era un clip). */
+export function syncFileDelete(path, { isClip = false } = {}) {
+  if (!path) return;
+  sendOrQueue({ type: 'DELETE_FILE', table: 'files', action: 'delete', match: { path } });
+  if (isClip) {
+    sendOrQueue({ type: 'DELETE_CLIP', table: 'surveillance_clips', action: 'delete', match: { path } });
+  }
+}
+
+/**
+ * Estado de conexión de un dispositivo, en el formato de la tabla devices de
+ * Santiago (online, offline, alert, maintenance).
+ */
+export function deviceConnectionStatus(dev) {
+  if (!dev) return 'offline';
+  if (dev.status === 'OFFLINE') return 'offline';
+  if (dev.type === 'motion' && dev.status === 'DETECTADO') return 'alert';
+  if (dev.type === 'lock' && dev.status === 'DESBLOQUEADA') return 'maintenance';
+  return 'online';
+}
+
+/** Actualiza el estado de conexión y la última conexión de un dispositivo (por nombre). */
+export function syncDeviceStatus(dev) {
+  if (!dev || !dev.name) return;
+  sendOrQueue({
+    type: 'SYNC_DEVICE',
+    table: 'devices',
+    action: 'update',
+    match: { name: dev.name },
+    payload: { status: deviceConnectionStatus(dev), last_seen: new Date().toISOString() },
+  });
+}
+
+// Caché nombre → UUID de la tabla devices, para enlazar los eventos de seguridad
+let deviceUuidCache = null;
+async function getDeviceUuid(name) {
+  if (!name) return null;
+  try {
+    if (!deviceUuidCache) {
+      const { data } = await supabase.from('devices').select('id, name');
+      deviceUuidCache = new Map((data || []).map((d) => [d.name, d.id]));
+    }
+    return deviceUuidCache.get(name) || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Registra un incidente en security_events (accesos denegados, intrusiones,
+ * dispositivos detenidos por el administrador).
+ */
+export function persistSecurityEvent({ event_type, severity = 'WARNING', description = '', deviceName = null }) {
+  if (!event_type) return;
+  (async () => {
+    const device_id = await getDeviceUuid(deviceName);
+    sendOrQueue({
+      type: 'SECURITY_EVENT',
+      table: 'security_events',
+      action: 'insert',
+      payload: {
+        id: generateUUID(),
+        device_id,
+        event_type,
+        severity,
+        description,
+        user_id: null,
+      },
+    });
+  })();
+}
