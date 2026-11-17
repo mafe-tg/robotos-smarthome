@@ -30,6 +30,7 @@ import {
   executeProgressiveFault,
 } from '../features/faults/faultEngine';
 import { SHARED_RESOURCES } from '../features/faults/deadlockModule';
+import { fetchFaultHistory } from '../lib/persistence';
 
 export const FaultInjectionPage = ({ onNavigate }) => {
   const systemContext = useSystem();
@@ -85,6 +86,27 @@ export const FaultInjectionPage = ({ onNavigate }) => {
   const [history, setHistory] = useState(getInjectionHistory());
   const [activeInjections, setActiveInjections] = useState([]);
   const activeHandlesRef = useRef([]);
+
+  // Carga inicial del historial de fallos desde Supabase
+  useEffect(() => {
+    let isMounted = true;
+    fetchFaultHistory().then((remoteHistory) => {
+      if (isMounted && remoteHistory && remoteHistory.length > 0) {
+        setHistory((prev) => {
+          const existingIds = new Set(prev.map((h) => h.id));
+          const toAdd = remoteHistory.filter((rh) => !existingIds.has(rh.id));
+          const merged = [...prev, ...toAdd];
+          try {
+            localStorage.setItem('robotos_fault_injection_history_v1', JSON.stringify(merged.slice(0, 50)));
+          } catch {}
+          return merged;
+        });
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // ─── Gestión de Escenarios ────────────────────────────────────────────────
   const [scenarios, setScenarios] = useState(getSavedScenarios());

@@ -16,6 +16,7 @@ import {
   detectDeadlockInRAG,
   resolveDeadlockByPriority,
 } from './deadlockModule';
+import { generateUUID, persistFaultInjection, fetchFaultHistory } from '../../lib/persistence';
 
 const HISTORY_KEY = 'robotos_fault_injection_history_v1';
 
@@ -32,10 +33,13 @@ export function getInjectionHistory() {
 export function saveInjectionRecord(record) {
   try {
     const current = getInjectionHistory();
-    const updated = [record, ...current].slice(0, 50); // Últimos 50 registros
+    const updated = [record, ...current.filter((r) => r.id !== record.id)].slice(0, 50); // Últimos 50 registros
     localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+    // Persistencia asíncrona en Supabase
+    persistFaultInjection(record);
     return updated;
   } catch {
+    persistFaultInjection(record);
     return [];
   }
 }
@@ -43,8 +47,19 @@ export function saveInjectionRecord(record) {
 export function updateInjectionRecord(recordId, updates) {
   try {
     const current = getInjectionHistory();
-    const updated = current.map((r) => (r.id === recordId ? { ...r, ...updates } : r));
+    let updatedRecord = null;
+    const updated = current.map((r) => {
+      if (r.id === recordId) {
+        updatedRecord = { ...r, ...updates };
+        return updatedRecord;
+      }
+      return r;
+    });
     localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+    // Persistencia asíncrona en Supabase
+    if (updatedRecord) {
+      persistFaultInjection(updatedRecord);
+    }
     return updated;
   } catch {
     return [];
@@ -101,7 +116,7 @@ export function executeSingleFault({
     setCpuUsageOverride,
   } = systemContext;
 
-  const injectionId = `inj_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+  const injectionId = generateUUID();
   const startTime = performance.now();
 
   // Simulación de latencia de interrupción y detección por el kernel (180ms - 420ms)

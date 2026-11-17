@@ -28,6 +28,7 @@ import {
 
 // Cliente de Supabase
 import { supabase } from '../lib/supabase';
+import { persistLog, emitSystemEvent } from '../lib/persistence';
 
 const SystemContext = createContext();
 
@@ -295,6 +296,13 @@ export const SystemProvider = ({ children }) => {
       message,
     };
     setLogs((prev) => [newLogEntry, ...prev.slice(0, 99)]);
+
+    // Persistencia asíncrona en Supabase (segundo plano)
+    persistLog({
+      level: safeLevel,
+      source,
+      message,
+    });
   };
 
   const addAlert = ({ title, details, severity = 'error' }) => {
