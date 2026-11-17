@@ -7,17 +7,17 @@
  * Regla de diseño: NINGÚN efecto secundario. Sin setX, sin fetch, sin refs.
  * Esto garantiza que el gemelo sea una representación determinista del SO.
  *
- * Autora de la fase 1: Mafe (feature/gemelo-mafe)
+ * Autoras: Mafe (fase 1 y 2) — feature/gemelo-mafe
  */
 
 // ─── Asignación proceso → habitación ────────────────────────────────────────
 export const PROCESS_ROOM = {
-  lighting_daemon:  'salon',
-  temp_manager:     'salon',
-  surveillance_proc:'entrada',
-  lock_guard:       'entrada',
-  routine_engine:   'cocina',
-  energy_monitor:   'base',
+  lighting_daemon:   'salon',
+  temp_manager:      'salon',
+  surveillance_proc: 'entrada',
+  lock_guard:        'entrada',
+  routine_engine:    'cocina',
+  energy_monitor:    'base',
 };
 
 // ─── Asignación dispositivo → habitación ─────────────────────────────────────
@@ -30,25 +30,41 @@ export const DEVICE_ROOM = {
   d6: 'salon',    // Termostato Salón
 };
 
+// Dispositivos visibles para GUEST (solo Salón y Cocina)
+export const GUEST_VISIBLE_DEVICES = new Set(['d1', 'd2', 'd6']);
+
 // ─── Paleta de estados del gemelo ────────────────────────────────────────────
-const STATE_COLORS = {
-  RUNNING:    { ring: '#10B981', glow: 'rgba(16,185,129,0.25)',  label: 'RUNNING'    },
-  READY:      { ring: '#F59E0B', glow: 'rgba(245,158,11,0.15)',  label: 'READY'      },
-  WAITING:    { ring: '#F97316', glow: 'rgba(249,115,22,0.15)',  label: 'WAITING'    },
-  NEW:        { ring: '#3B82F6', glow: 'rgba(59,130,246,0.15)',  label: 'NEW'        },
-  TERMINATED: { ring: '#475569', glow: 'rgba(71,85,105,0.08)',   label: 'TERMINADO'  },
-  FALLA:      { ring: '#EF4444', glow: 'rgba(239,68,68,0.20)',   label: 'FALLA'      },
+export const STATE_COLORS = {
+  RUNNING:    '#10B981',
+  READY:      '#F59E0B',
+  WAITING:    '#F97316',
+  NEW:        '#3B82F6',
+  TERMINATED: '#475569',
+  FALLA:      '#EF4444',
 };
+
+const ROOM_FILL = {
+  RUNNING:    '#0F2A1A',
+  READY:      '#1C1A09',
+  WAITING:    '#1C1109',
+  NEW:        '#0A1225',
+  TERMINATED: '#111827',
+  FALLA:      '#1F0A0A',
+};
+
+export { ROOM_FILL };
 
 // ─── Función principal ────────────────────────────────────────────────────────
 /**
  * @param {object} param0
- * @param {Array}  param0.processes   — lista de procesos del SystemContext
- * @param {Array}  param0.devices     — lista de dispositivos del SystemContext
- * @param {Array}  param0.alerts      — alertas activas del SystemContext
- * @param {object} param0.memoryStats — { usedKb, totalKb, freeKb, usagePct }
- * @param {object} param0.energyReport— { totalKwh, costoEstimado }
+ * @param {Array}  param0.processes      — lista de procesos del SystemContext
+ * @param {Array}  param0.devices        — lista de dispositivos del SystemContext
+ * @param {Array}  param0.alerts         — alertas activas del SystemContext
+ * @param {object} param0.memoryStats    — { usedKb, totalKb }
+ * @param {object} param0.energyReport   — { totalKwh }
  * @param {object} param0.systemSettings
+ * @param {number} param0.batteryPercent — batería real del SystemContext (metrics.batteryPercent)
+ * @param {number} param0.cpuUsage       — % CPU real del SystemContext (metrics.cpuUsage)
  * @returns {TwinState}
  */
 export function deriveTwinState({
@@ -58,39 +74,35 @@ export function deriveTwinState({
   memoryStats = {},
   energyReport = {},
   systemSettings = {},
+  batteryPercent = 84,
+  cpuUsage = 28,
 }) {
-  // ── 1. Estado de cada habitación ─────────────────────────────────────────
-  const rooms = deriveRooms(processes, devices, alerts);
-
-  // ── 2. Dispositivos individuales ─────────────────────────────────────────
+  const rooms       = deriveRooms(processes, devices, alerts);
   const deviceStates = deriveDevices(devices, processes);
+  const robot       = deriveRobot(processes, memoryStats, alerts, batteryPercent, cpuUsage);
 
-  // ── 3. Robot (posición y estado corporal) ─────────────────────────────────
-  const robot = deriveRobot(processes, memoryStats, energyReport, alerts);
-
-  // ── 4. Alertas globales que afectan el plano completo ────────────────────
-  const globalAlerts = alerts.filter((a) => a.state === 'Activa');
-  const hasCommLoss = globalAlerts.some((a) =>
+  const activeAlerts = alerts.filter((a) => a.state === 'Activa');
+  const hasCommLoss = activeAlerts.some((a) =>
     a.title?.toLowerCase().includes('comunicación') ||
     a.details?.toLowerCase().includes('offline') ||
     a.details?.toLowerCase().includes('bus')
   );
-  const hasUnauthorized = globalAlerts.some((a) =>
+  const hasUnauthorized = activeAlerts.some((a) =>
     a.title?.toLowerCase().includes('autorizado') ||
     a.title?.toLowerCase().includes('intrusión')
   );
 
-  // ── 5. Proceso RUNNING actual ──────────────────────────────────────────────
   const runningProcess = processes.find((p) => p.state === 'RUNNING') || null;
-  const runningRoom = runningProcess ? (PROCESS_ROOM[runningProcess.name] || 'base') : 'base';
+  const runningRoom    = runningProcess ? (PROCESS_ROOM[runningProcess.name] || 'base') : 'base';
 
   return {
     rooms,
     deviceStates,
     robot: { ...robot, currentRoom: runningRoom, runningProcess },
-    globalAlerts: { hasCommLoss, hasUnauthorized, count: globalAlerts.length },
+    globalAlerts: { hasCommLoss, hasUnauthorized, count: activeAlerts.length },
     summary: {
       algorithm: systemSettings.scheduler_algorithm || 'PRIORIDAD',
+      rr_quantum: systemSettings.rr_quantum || 2,
       ramPct: memoryStats.usedKb && memoryStats.totalKb
         ? Math.round((memoryStats.usedKb / memoryStats.totalKb) * 100)
         : 0,
@@ -105,66 +117,37 @@ function deriveRooms(processes, devices, alerts) {
   const roomMap = {};
 
   roomIds.forEach((roomId) => {
-    // Procesos asignados a esta habitación
-    const roomProcesses = processes.filter(
-      (p) => PROCESS_ROOM[p.name] === roomId
-    );
-
-    // Dispositivos en esta habitación
-    const roomDevices = devices.filter(
-      (d) => DEVICE_ROOM[d.id] === roomId
-    );
-
-    // Estado dominante del cuarto (prioridad: RUNNING > WAITING > READY > NEW > TERMINATED)
+    const roomProcesses = processes.filter((p) => PROCESS_ROOM[p.name] === roomId);
+    const roomDevices   = devices.filter((d) => DEVICE_ROOM[d.id] === roomId);
     const dominantState = getDominantState(roomProcesses);
-    const stateStyle = STATE_COLORS[dominantState] || STATE_COLORS.TERMINATED;
-
-    // ¿Tiene alguna falla activa?
     const hasAlert = alerts.some(
-      (a) =>
-        a.state === 'Activa' &&
-        roomProcesses.some((p) =>
-          a.details?.toLowerCase().includes(p.name.toLowerCase())
-        )
+      (a) => a.state === 'Activa' &&
+        roomProcesses.some((p) => a.details?.toLowerCase().includes(p.name.toLowerCase()))
     );
-
-    // ¿Alguna luz encendida?
-    const hasLightOn = roomDevices.some(
-      (d) => d.type === 'light' && d.status === 'ON'
-    );
+    const hasLightOn = roomDevices.some((d) => d.type === 'light' && d.status === 'ON');
 
     roomMap[roomId] = {
       id: roomId,
       dominantState,
-      stateStyle: hasAlert ? STATE_COLORS.FALLA : stateStyle,
       hasAlert,
       hasLightOn,
       processes: roomProcesses,
-      devices: roomDevices,
+      devices:   roomDevices,
     };
   });
 
   return roomMap;
 }
 
-// ─── Derivar estado de cada dispositivo ──────────────────────────────────────
+// ─── Derivar estado de dispositivos ──────────────────────────────────────────
 function deriveDevices(devices, processes) {
   return devices.map((dev) => {
-    // Proceso responsable de este dispositivo (heurística por nombre)
     const responsibleProcess = findResponsibleProcess(dev, processes);
     const procState = responsibleProcess?.state || 'RUNNING';
-
-    // ¿Está desconectado por falla?
     const isOffline = dev.status === 'OFFLINE';
-
-    // Icono según tipo y estado
-    const icon = getDeviceIcon(dev);
-
-    // Color del indicador
-    const dotColor = getDeviceDotColor(dev, procState, isOffline);
-
-    // Texto de tooltip
-    const tooltip = `${dev.name}\nEstado: ${dev.status}${responsibleProcess ? `\nProceso: ${responsibleProcess.name} [${procState}]` : ''}`;
+    const icon      = getDeviceIcon(dev);
+    const dotColor  = getDeviceDotColor(dev, procState, isOffline);
+    const tooltip   = `${dev.name}\nEstado: ${dev.status}${responsibleProcess ? `\nProceso: ${responsibleProcess.name} [${procState}]` : ''}`;
 
     return {
       id: dev.id,
@@ -178,7 +161,6 @@ function deriveDevices(devices, processes) {
       responsibleProcess: responsibleProcess?.name || null,
       tooltip,
       room: DEVICE_ROOM[dev.id] || 'exterior',
-      // Animaciones especiales
       pulsing: dev.status === 'DETECTADO' || procState === 'WAITING',
       dimmed: isOffline || procState === 'TERMINATED',
     };
@@ -186,40 +168,43 @@ function deriveDevices(devices, processes) {
 }
 
 // ─── Derivar estado del robot ─────────────────────────────────────────────────
-function deriveRobot(processes, memoryStats, energyReport, alerts) {
+function deriveRobot(processes, memoryStats, alerts, batteryPercent, cpuUsage) {
+  // Corrección: usar la batería real del SystemContext (metrics.batteryPercent)
+  const batteryPct     = typeof batteryPercent === 'number' ? batteryPercent : 84;
+  const batteryCritical = batteryPct < 15;  // < 15 % → vuelve a la base (fase 2)
+  const batterLow       = batteryPct < 30;
+
   const ramPct = memoryStats.usedKb && memoryStats.totalKb
     ? Math.round((memoryStats.usedKb / memoryStats.totalKb) * 100)
     : 0;
 
-  const energyKwh = energyReport.totalKwh || 0;
-  // La batería simulada baja según el consumo (máx referencia: 15 kWh = batería agotada)
-  const batteryPct = Math.max(0, Math.min(100, Math.round(100 - (energyKwh / 15) * 100)));
-  const batteryCritical = batteryPct < 20;
-
   const hasActiveAlert = alerts.some((a) => a.state === 'Activa');
+  const cpuBusy        = processes.some((p) => p.state === 'RUNNING');
 
-  // CPU: contar procesos RUNNING (simplificado, ya que no tenemos % real del tick)
-  const runningCount = processes.filter((p) => p.state === 'RUNNING').length;
-  const cpuBusy = runningCount > 0;
-
-  // Estado global del robot
   let robotStatus = 'IDLE';
-  if (batteryCritical)       robotStatus = 'CHARGING';
-  else if (hasActiveAlert)   robotStatus = 'ALERT';
-  else if (cpuBusy)          robotStatus = 'WORKING';
+  if (batteryCritical)     robotStatus = 'CHARGING';
+  else if (hasActiveAlert) robotStatus = 'ALERT';
+  else if (cpuBusy)        robotStatus = 'WORKING';
+
+  // ── Velocidad de movimiento: mayor CPU = más rápido; batería baja = más lento ──
+  // Intervalo base 1200 ms. cpuUsage (0-100) reduce hasta 500 ms.
+  // Batería < 30 % suma 400 ms de penalización.
+  const cpuFactor      = Math.max(0.4, 1 - (cpuUsage / 100) * 0.6); // 0.4 – 1.0
+  const batteryPenalty = batterLow ? 400 : 0;
+  const moveIntervalMs = Math.round(1200 * cpuFactor) + batteryPenalty;
 
   return {
     batteryPct,
     batteryCritical,
     ramPct,
     cpuBusy,
-    runningCount,
+    cpuUsage,
     hasActiveAlert,
     robotStatus,
-    // Colores del cuerpo
+    moveIntervalMs,
     cpuColor:     cpuBusy      ? '#10B981' : '#475569',
     ramColor:     ramPct > 80  ? '#EF4444' : ramPct > 50 ? '#F59E0B' : '#10B981',
-    batteryColor: batteryCritical ? '#EF4444' : batteryPct < 50 ? '#F59E0B' : '#10B981',
+    batteryColor: batteryCritical ? '#EF4444' : batterLow ? '#F59E0B' : '#10B981',
     alertColor:   hasActiveAlert ? '#EF4444' : '#475569',
   };
 }
@@ -227,41 +212,39 @@ function deriveRobot(processes, memoryStats, energyReport, alerts) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getDominantState(procs) {
   if (procs.length === 0) return 'TERMINATED';
-  const order = ['RUNNING', 'WAITING', 'READY', 'NEW', 'TERMINATED'];
-  for (const s of order) {
+  for (const s of ['RUNNING', 'WAITING', 'READY', 'NEW', 'TERMINATED']) {
     if (procs.some((p) => p.state === s)) return s;
   }
   return 'TERMINATED';
 }
 
 function findResponsibleProcess(device, processes) {
-  // Mapa explícito dispositivo → proceso responsable
   const MAP = {
-    d1: 'lighting_daemon',   // Luces Salón
-    d2: 'routine_engine',    // Luces Cocina (routine_engine controla la cocina)
-    d3: 'surveillance_proc', // Sensor Movimiento
-    d4: 'surveillance_proc', // Cámara Frontal
-    d5: 'lock_guard',        // Cerradura
-    d6: 'temp_manager',      // Termostato
+    d1: 'lighting_daemon',
+    d2: 'routine_engine',
+    d3: 'surveillance_proc',
+    d4: 'surveillance_proc',
+    d5: 'lock_guard',
+    d6: 'temp_manager',
   };
   const procName = MAP[device.id];
   return procName ? processes.find((p) => p.name === procName) : null;
 }
 
 function getDeviceIcon(dev) {
-  if (dev.type === 'light')   return dev.status === 'ON'          ? '💡' : '🔅';
-  if (dev.type === 'motion')  return dev.status === 'DETECTADO'   ? '🚨' : '🚶';
-  if (dev.type === 'camera')  return dev.status === 'OFFLINE'     ? '📵' : '📷';
-  if (dev.type === 'lock')    return dev.status === 'DESBLOQUEADA'? '🔓' : '🔒';
+  if (dev.type === 'light')   return dev.status === 'ON'           ? '💡' : '🔅';
+  if (dev.type === 'motion')  return dev.status === 'DETECTADO'    ? '🚨' : '🚶';
+  if (dev.type === 'camera')  return dev.status === 'OFFLINE'      ? '📵' : '📷';
+  if (dev.type === 'lock')    return dev.status === 'DESBLOQUEADA' ? '🔓' : '🔒';
   if (dev.type === 'climate') return '🌡️';
   return '⚙️';
 }
 
 function getDeviceDotColor(dev, procState, isOffline) {
-  if (isOffline || procState === 'TERMINATED') return '#EF4444'; // rojo: sin servicio
-  if (procState === 'WAITING')                  return '#F97316'; // naranja: en espera
-  if (dev.type === 'light' && dev.status === 'OFF') return '#475569'; // gris: apagado
-  if (dev.type === 'motion' && dev.status === 'DETECTADO') return '#F59E0B'; // ámbar: alerta
-  if (dev.type === 'lock' && dev.status === 'DESBLOQUEADA') return '#F97316'; // naranja
-  return '#10B981'; // verde: operativo normal
+  if (isOffline || procState === 'TERMINATED')             return '#EF4444';
+  if (procState === 'WAITING')                              return '#F97316';
+  if (dev.type === 'light'  && dev.status === 'OFF')        return '#475569';
+  if (dev.type === 'motion' && dev.status === 'DETECTADO')  return '#F59E0B';
+  if (dev.type === 'lock'   && dev.status === 'DESBLOQUEADA') return '#F97316';
+  return '#10B981';
 }

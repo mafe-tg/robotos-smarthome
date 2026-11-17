@@ -13,7 +13,7 @@ export const RobotPanel = ({ robot, summary }) => {
 
   const statusLabel = {
     WORKING:  { text: 'TRABAJANDO', color: '#10B981' },
-    CHARGING: { text: 'CARGANDO',   color: '#F59E0B' },
+    CHARGING: { text: 'CARGANDO — BATERÍA CRÍTICA', color: '#EF4444' },
     ALERT:    { text: 'EN ALERTA',  color: '#EF4444' },
     IDLE:     { text: 'EN REPOSO',  color: '#64748B' },
   }[robotStatus] || { text: 'EN REPOSO', color: '#64748B' };
