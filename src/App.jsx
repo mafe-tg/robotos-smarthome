@@ -10,6 +10,7 @@ import { MemoryPage } from './pages/MemoryPage';
 import { DevicesPage } from './pages/DevicesPage';
 import { LogsAlertsPage } from './pages/LogsAlertsPage';
 import { LoginPage } from './pages/LoginPage';
+import { TwinPage } from './pages/TwinPage';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('overview');
@@ -28,6 +29,8 @@ export default function App() {
         return <LogsAlertsPage onNavigate={setCurrentScreen} />;
       case 'login':
         return <LoginPage onNavigate={setCurrentScreen} />;
+      case 'twin':
+        return <TwinPage onNavigate={setCurrentScreen} />;
       default:
         return <OverviewPage onNavigate={setCurrentScreen} />;
     }
