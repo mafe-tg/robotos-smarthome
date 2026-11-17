@@ -443,6 +443,11 @@ export const MemoryPage = () => {
                           className={`px-2 py-0.5 rounded text-[10px] font-bold ${style.bg} ${style.text} border ${style.border}`}
                         >
                           {b.owner}
+                          {b.corrupted && (
+                            <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-950 text-red-300 border border-red-700 animate-pulse">
+                              💥 CORRUPTO
+                            </span>
+                          )}
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-cyan-400 font-bold">{b.size} KB</td>

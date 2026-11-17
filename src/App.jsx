@@ -11,6 +11,7 @@ import { DevicesPage } from './pages/DevicesPage';
 import { LogsAlertsPage } from './pages/LogsAlertsPage';
 import { LoginPage } from './pages/LoginPage';
 import { TwinPage } from './pages/TwinPage';
+import { FaultInjectionPage } from './pages/FaultInjectionPage';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('overview');
@@ -31,6 +32,8 @@ export default function App() {
         return <LoginPage onNavigate={setCurrentScreen} />;
       case 'twin':
         return <TwinPage onNavigate={setCurrentScreen} />;
+      case 'fault-injection':
+        return <FaultInjectionPage onNavigate={setCurrentScreen} />;
       default:
         return <OverviewPage onNavigate={setCurrentScreen} />;
     }

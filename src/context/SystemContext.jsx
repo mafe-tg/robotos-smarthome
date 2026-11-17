@@ -128,6 +128,9 @@ export const SystemProvider = ({ children }) => {
   const [logs, setLogs] = useState(INITIAL_SUPABASE_LOGS);
   const [alerts, setAlerts] = useState(INITIAL_ALERTS);
 
+  // 7. Modificador dinámico de CPU para inyección de fallos
+  const [cpuUsageOverride, setCpuUsageOverride] = useState(null);
+
   // Carga asíncrona desde Supabase al montar el componente (solo lectura remota)
   useEffect(() => {
     let isMounted = true;
@@ -233,7 +236,7 @@ export const SystemProvider = ({ children }) => {
 
   // Telemetría del sistema vinculada al estado de memoria de Dana, VFS y EnergyMonitor
   const metrics = {
-    cpuUsage: 28,
+    cpuUsage: cpuUsageOverride !== null ? cpuUsageOverride : 28,
     ramUsageKB: memoryStats.usedKb,
     ramTotalKB: memoryStats.totalKb,
     ramUsageMB: Math.round((memoryStats.usedKb / 1024) * 10) / 10,
@@ -956,6 +959,14 @@ export const SystemProvider = ({ children }) => {
         simulateSensorDisconnected,
         simulateCommLoss,
         simulateUnauthorizedAccess,
+        setProcesses,
+        setDevices,
+        setMemoryBlocks,
+        setMemoryStats,
+        setAlerts,
+        cpuUsageOverride,
+        setCpuUsageOverride,
+        memoryManager: memoryManagerRef.current,
       }}
     >
       {children}
