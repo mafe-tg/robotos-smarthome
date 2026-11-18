@@ -7,7 +7,7 @@ import { ErrorManager } from "./ErrorManager.js";
 import { SystemCalls } from "./SystemCalls.js";
 
 export class KernelCore {
-  constructor({ onLog = null } = {}) {
+  constructor({ onLog = null, onEvent = null } = {}) {
     this.state = new SystemState();
     this.errors = new ErrorManager({
       onError: (entry) => {
@@ -17,6 +17,7 @@ export class KernelCore {
     });
     this.events = new EventEngine({
       errorHandler: (error, metadata) => this.errors.report(error, metadata),
+      onEvent,
     });
     this.syscalls = new SystemCalls({
       isOperational: () => this.state.isOperational(),
@@ -50,9 +51,21 @@ export class KernelCore {
     if (this.state.status === SYSTEM_STATUS.RUNNING || this.state.status === SYSTEM_STATUS.DEGRADED) {
       this.state.transition(SYSTEM_STATUS.SHUTTING_DOWN, reason);
       this.events.emit("kernel:shutdown", { reason });
-      return this.state.transition(SYSTEM_STATUS.OFF, reason);
+      const snapshot = this.state.transition(SYSTEM_STATUS.OFF, reason);
+      // Al quedar apagado, el próximo arranque debe pasar de nuevo por BOOTING.
+      this.initialized = false;
+      return snapshot;
     }
     throw new Error(`No se puede apagar el kernel desde ${this.state.status}`);
+  }
+
+  /** Detiene el kernel por una falla (por ejemplo, un arranque fallido). Permite reintentar el arranque. */
+  halt(reason = "Detención del kernel") {
+    if (this.state.status === SYSTEM_STATUS.HALTED) return this.state.snapshot();
+    const snapshot = this.state.transition(SYSTEM_STATUS.HALTED, reason);
+    this.initialized = false;
+    this.events.emit("kernel:halted", { reason });
+    return snapshot;
   }
 
   reportError(error, metadata) {
