@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { persistSecurityEvent } from '../lib/persistence';
 
 const AuthContext = createContext();
 
@@ -96,6 +97,13 @@ export const AuthProvider = ({ children }) => {
         title: 'ACCESO DENEGADO',
         action: actionDescription,
         reason: reason,
+      });
+
+      // Registrar el incidente en security_events de Supabase
+      persistSecurityEvent({
+        event_type: 'ACCESS_DENIED',
+        severity: 'WARNING',
+        description: `Acción "${actionDescription}" denegada al rol ${user ? user.role : 'NO_AUTH'} (requiere ${requiredRole}).`,
       });
 
       // Registrar en logs del sistema si se pasa la función de callback
