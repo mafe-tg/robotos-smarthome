@@ -7,6 +7,10 @@
  *   Todas devuelven una promesa: hay que usar await.
  * Memoria virtual con paginación (page faults, reemplazo FIFO y LRU):
  *   accessPage() y setPageAlgorithm() (promesas, exigen kernel RUNNING) y getMemoryState() (lectura directa)
+ * Sincronización, IPC y deadlock (mutex, semáforos, canales de mensajes):
+ *   createSyncResource(), lockResource(), unlockResource(), sendMessage(), receiveMessage(),
+ *   detectDeadlock() y resolveDeadlock() (promesas) y getSyncState() (lectura directa)
+ * Tiempo real (EDF y Rate Monotonic con deadlines): runRealTime() (promesa)
  *
  * Los eventos salen con el formato { tipo, origen, detalle, fecha } hacia la función
  * onEvent que se pase en la PRIMERA llamada a boot(); así otro módulo los puede guardar.
@@ -17,6 +21,8 @@ import { ProcessManager } from "../../resources/ProcessManager.js";
 import { ThreadManager } from "../../resources/ThreadManager.js";
 import { CPUScheduler } from "../../resources/CPUScheduler.js";
 import { MemoryManager } from "../../resources/MemoryManager.js";
+import { SyncManager } from "../../resources/SyncManager.js";
+import { simulateRealTime } from "../../resources/RealTimeScheduler.js";
 
 let kernel = null;
 let bootManager = null;
@@ -24,6 +30,7 @@ let processManager = null;
 let threadManager = null;
 let scheduler = null;
 let memoryManager = null;
+let syncManager = null;
 
 /**
  * Agrupa la línea de tiempo del scheduler en turnos: cada vez que cambia el proceso
@@ -45,12 +52,14 @@ function crearRecursos(k, { memoryLimitMb }) {
   threadManager = new ThreadManager({ eventEngine: k.events, processManager });
   scheduler = new CPUScheduler();
   memoryManager = new MemoryManager({ eventEngine: k.events });
+  syncManager = new SyncManager({ eventEngine: k.events, threadManager });
 
-  // Al apagar el kernel (o detenerlo por un arranque fallido) se vacían procesos, hilos y memoria.
+  // Al apagar el kernel (o detenerlo por un arranque fallido) se vacían procesos, hilos, memoria y sincronización.
   const vaciar = () => {
     processManager.reset();
     threadManager.reset();
     memoryManager.reset();
+    syncManager.reset();
   };
   k.events.on("kernel:shutdown", vaciar);
   k.events.on("kernel:halted", vaciar);
@@ -73,6 +82,24 @@ function crearRecursos(k, { memoryLimitMb }) {
 
   k.syscalls.register("memory.access", (pid, page) => memoryManager.access(pid, page));
   k.syscalls.register("memory.configure", (config) => memoryManager.configure(config));
+
+  k.syscalls.register("sync.create", (config) => syncManager.create(config));
+  k.syscalls.register("sync.acquire", (nombre, tid) => syncManager.acquire(nombre, tid));
+  k.syscalls.register("sync.release", (nombre, tid) => syncManager.release(nombre, tid));
+  k.syscalls.register("ipc.send", (canal, tid, mensaje) => syncManager.send(canal, tid, mensaje));
+  k.syscalls.register("ipc.receive", (canal, tid) => syncManager.receive(canal, tid));
+  k.syscalls.register("deadlock.detect", () => syncManager.detectDeadlock());
+  k.syscalls.register("deadlock.resolve", () => syncManager.resolveDeadlock());
+
+  k.syscalls.register("realtime.run", ({ tasks, algorithm = "EDF", horizon } = {}) => {
+    const resultado = simulateRealTime(tasks, algorithm, horizon);
+    // Como en el scheduler, los eventos salen después de la corrida. La línea de tiempo no va en el evento (es larga).
+    k.events.emit("realtime:started", { algoritmo: algorithm, tareas: resultado.tasks.length, horizonte: resultado.horizon });
+    for (const perdido of resultado.misses) k.events.emit("realtime:deadline_missed", { algoritmo: algorithm, ...perdido });
+    const { timeline, ...resumen } = resultado;
+    k.events.emit("realtime:completed", resumen);
+    return resultado;
+  });
 
   // Cuando un proceso termina (lo avisa ProcessManager.run) se liberan sus marcos.
   k.events.on("process:terminate", (evento) => memoryManager.releaseProcess(evento.payload.pid));
@@ -184,12 +211,58 @@ export function getMemoryState() {
   return memoryManager ? memoryManager.getState() : null;
 }
 
+/** Crea un mutex o un semáforo: { type: "MUTEX" | "SEMAPHORE", name, count (solo semáforo) }. */
+export function createSyncResource(config) {
+  return llamar("sync.create", config);
+}
+
+/** Un hilo (tid) pide un mutex (lock) o un semáforo (wait): { acquired, waiting }. Si debe esperar, el hilo pasa a WAITING. */
+export function lockResource(nombre, tid) {
+  return llamar("sync.acquire", nombre, tid);
+}
+
+/** Un hilo (tid) libera un mutex (unlock, solo su dueño) o un semáforo (signal). Despierta al primero que espera. */
+export function unlockResource(nombre, tid) {
+  return llamar("sync.release", nombre, tid);
+}
+
+/** Envía un mensaje por un canal IPC (se crea al usarlo). Si un hilo esperaba, se le entrega y se despierta. */
+export function sendMessage(canal, tid, mensaje) {
+  return llamar("ipc.send", canal, tid, mensaje);
+}
+
+/** Recibe un mensaje de un canal IPC: { received, waiting, message }. Si no hay, el hilo pasa a WAITING. */
+export function receiveMessage(canal, tid) {
+  return llamar("ipc.receive", canal, tid);
+}
+
+/** Busca un deadlock entre hilos con mutex: { hasDeadlock, cycle, processesInCycle }. */
+export function detectDeadlock() {
+  return llamar("deadlock.detect");
+}
+
+/** Si hay deadlock, termina al hilo de menor prioridad y libera sus mutex: { resolved, victim, survivor, ... }. */
+export function resolveDeadlock() {
+  return llamar("deadlock.resolve");
+}
+
+/** Estado de mutex, semáforos, canales IPC y deadlock. Es null si aún no se ha arrancado. */
+export function getSyncState() {
+  return syncManager ? syncManager.getState() : null;
+}
+
+/** Simula tareas de tiempo real: { tasks: [{ name, period, computation, deadline }], algorithm: "EDF" | "RM", horizon }. */
+export function runRealTime(config) {
+  return llamar("realtime.run", config);
+}
+
 /** Descarta la instancia actual (útil en pruebas). */
 export function resetKernel() {
   kernel = null;
   bootManager = null;
   processManager = null;
   memoryManager = null;
+  syncManager = null;
   threadManager = null;
   scheduler = null;
 }
