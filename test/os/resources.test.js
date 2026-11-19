@@ -9,18 +9,18 @@ const processData = (name = "Vigilancia") => ({
 });
 
 test("ProcessManager crea procesos, administra estados y libera memoria al terminar", () => {
-  const manager = new ProcessManager({ memoryLimitKb: 100 });
+  const manager = new ProcessManager({ memoryLimitMb: 100 });
   const process = manager.create(processData());
-  assert.equal(manager.usedMemoryKb, 64);
-  manager.transition(process.managerId, "admit");
-  manager.transition(process.managerId, "execute");
-  manager.transition(process.managerId, "terminate");
+  assert.equal(manager.usedMemoryMb, 64);
+  manager.transition(process.pid, "admit");
+  manager.transition(process.pid, "execute");
+  manager.transition(process.pid, "terminate");
   assert.equal(process.estado, "TERMINATED");
-  assert.equal(manager.usedMemoryKb, 0);
+  assert.equal(manager.usedMemoryMb, 0);
 });
 
 test("ProcessManager rechaza procesos cuando no hay memoria", () => {
-  const manager = new ProcessManager({ memoryLimitKb: 32 });
+  const manager = new ProcessManager({ memoryLimitMb: 32 });
   assert.throws(() => manager.create(processData()), /Memoria insuficiente/);
 });
 
@@ -50,7 +50,7 @@ test("ThreadManager bloquea y desbloquea hilos", () => {
   const thread = manager.create({ processId: 4, name: "espera-red" });
   manager.admit(thread.tid);
   manager.block(thread.tid);
-  assert.equal(manager.list()[0].state, THREAD_STATES.BLOCKED);
+  assert.equal(manager.list()[0].state, THREAD_STATES.WAITING);
   manager.unblock(thread.tid);
   assert.equal(manager.list()[0].state, THREAD_STATES.READY);
 });
