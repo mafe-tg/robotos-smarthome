@@ -275,18 +275,27 @@ export const KernelPage = ({ onNavigate }) => {
     }
     setActionLoading(true);
     try {
+      // Asegurar proceso y dos hilos dedicados para la contención
+      let p = demoProcesses[0];
+      if (!p) {
+        p = await createProcess({ nombre: 'Robot-Control', prioridad: 1, memoriaRequerida: 2, cpuRequerida: 10, tiempoTotal: 4 });
+        setDemoProcesses((prev) => [...prev, p]);
+      }
+      const h1 = await createThread({ processId: p.pid, name: 'H-Vision-Lock', priority: 1, burst: 4 });
+      const h2 = await createThread({ processId: p.pid, name: 'H-Nav-Lock', priority: 4, burst: 4 });
+
       await createSyncResource({ type: 'MUTEX', name: 'MUTEX_CAMARA' });
       await createSyncResource({ type: 'MUTEX', name: 'MUTEX_SENSORES' });
 
       // Hilo 1 toma Cámara
-      await lockResource('MUTEX_CAMARA', 1);
+      await lockResource('MUTEX_CAMARA', h1.tid);
       // Hilo 2 toma Sensores
-      await lockResource('MUTEX_SENSORES', 2);
+      await lockResource('MUTEX_SENSORES', h2.tid);
 
-      // Ahora Hilo 1 solicita Sensores (bloqueado)
-      await lockResource('MUTEX_SENSORES', 1);
-      // Y Hilo 2 solicita Cámara (bloqueado -> CICLO!)
-      await lockResource('MUTEX_CAMARA', 2);
+      // Ahora Hilo 1 solicita Sensores (queda bloqueado esperando a Hilo 2)
+      await lockResource('MUTEX_SENSORES', h1.tid);
+      // Y Hilo 2 solicita Cámara (queda bloqueado esperando a Hilo 1 -> CICLO / DEADLOCK!)
+      await lockResource('MUTEX_CAMARA', h2.tid);
 
       const check = await detectDeadlock();
       setDeadlockInfo(check);
@@ -295,7 +304,7 @@ export const KernelPage = ({ onNavigate }) => {
       if (check.hasDeadlock) {
         setActionFeedback({
           type: 'error',
-          message: `¡Deadlock detectado! Ciclo de espera circular entre hilos: ${check.processesInCycle.join(' ↔ ')}`,
+          message: `¡Deadlock detectado! Ciclo de espera circular entre hilos: ${check.processesInCycle?.join(' ↔ ') || 'hilo-' + h1.tid + ' ↔ hilo-' + h2.tid}`,
         });
       }
     } catch (err) {
@@ -314,9 +323,11 @@ export const KernelPage = ({ onNavigate }) => {
       refreshTelemetry();
 
       if (res.resolved) {
+        const victimName = res.victim?.name || res.victim?.tid || res.victim || 'Hilo secundario';
+        const survivorName = res.survivor?.name || res.survivor?.tid || res.survivor || 'Hilo prioritario';
         setActionFeedback({
           type: 'success',
-          message: `Deadlock resuelto con éxito. Víctima sacrificada: Hilo TID ${res.victim} (menor prioridad). Hilo ${res.survivor} continuó.`,
+          message: `Deadlock resuelto con éxito. Víctima sacrificada: ${victimName} (menor prioridad). Sobreviviente: ${survivorName}.`,
         });
       } else {
         setActionFeedback({ type: 'info', message: 'No hay deadlock activo por resolver.' });
