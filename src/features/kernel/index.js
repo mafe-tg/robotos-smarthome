@@ -5,6 +5,8 @@
  * Procesos e hilos (pasan por las system calls, por eso fallan si el kernel no está RUNNING):
  *   createProcess(), createThread(), listProcesses(), listThreads(), setScheduler(), runScheduler()
  *   Todas devuelven una promesa: hay que usar await.
+ * Memoria virtual con paginación (page faults, reemplazo FIFO y LRU):
+ *   accessPage() y setPageAlgorithm() (promesas, exigen kernel RUNNING) y getMemoryState() (lectura directa)
  *
  * Los eventos salen con el formato { tipo, origen, detalle, fecha } hacia la función
  * onEvent que se pase en la PRIMERA llamada a boot(); así otro módulo los puede guardar.
@@ -14,12 +16,14 @@ import { BootManager } from "../../core/BootManager.js";
 import { ProcessManager } from "../../resources/ProcessManager.js";
 import { ThreadManager } from "../../resources/ThreadManager.js";
 import { CPUScheduler } from "../../resources/CPUScheduler.js";
+import { MemoryManager } from "../../resources/MemoryManager.js";
 
 let kernel = null;
 let bootManager = null;
 let processManager = null;
 let threadManager = null;
 let scheduler = null;
+let memoryManager = null;
 
 /**
  * Agrupa la línea de tiempo del scheduler en turnos: cada vez que cambia el proceso
@@ -40,16 +44,24 @@ function crearRecursos(k, { memoryLimitMb }) {
   processManager = new ProcessManager({ eventEngine: k.events, memoryLimitMb });
   threadManager = new ThreadManager({ eventEngine: k.events, processManager });
   scheduler = new CPUScheduler();
+  memoryManager = new MemoryManager({ eventEngine: k.events });
 
-  // Al apagar el kernel (o detenerlo por un arranque fallido) se vacían procesos e hilos.
+  // Al apagar el kernel (o detenerlo por un arranque fallido) se vacían procesos, hilos y memoria.
   const vaciar = () => {
     processManager.reset();
     threadManager.reset();
+    memoryManager.reset();
   };
   k.events.on("kernel:shutdown", vaciar);
   k.events.on("kernel:halted", vaciar);
 
-  k.syscalls.register("process.create", (data) => processManager.toJSON(processManager.create(data)));
+  k.syscalls.register("process.create", (data) => {
+    const proceso = processManager.create(data);
+    // Memoria virtual: cada proceso con memoria recibe su tabla de páginas (1 página por MB).
+    const mb = Number(proceso.memoriaRequerida);
+    if (Number.isFinite(mb) && mb > 0) memoryManager.registerProcess(proceso.pid, mb);
+    return processManager.toJSON(proceso);
+  });
   k.syscalls.register("process.list", (filtro) => processManager.list(filtro));
 
   // Un hilo creado entra directamente a la cola de listos (admit = false lo deja en NEW).
@@ -58,6 +70,12 @@ function crearRecursos(k, { memoryLimitMb }) {
     return admit ? threadManager.admit(hilo.tid) : hilo;
   });
   k.syscalls.register("thread.list", (filtro) => threadManager.list(filtro));
+
+  k.syscalls.register("memory.access", (pid, page) => memoryManager.access(pid, page));
+  k.syscalls.register("memory.configure", (config) => memoryManager.configure(config));
+
+  // Cuando un proceso termina (lo avisa ProcessManager.run) se liberan sus marcos.
+  k.events.on("process:terminate", (evento) => memoryManager.releaseProcess(evento.payload.pid));
 
   k.syscalls.register("scheduler.set", (config) => {
     scheduler.setConfiguration(config);
@@ -151,11 +169,27 @@ export function runScheduler() {
   return llamar("scheduler.run");
 }
 
+/** Accede a una página de un proceso: { pid, page, fault, frame, victim }. fault es true si hubo page fault. */
+export function accessPage(pid, page) {
+  return llamar("memory.access", pid, page);
+}
+
+/** Configura el reemplazo de páginas: { algorithm: "FIFO" | "LRU", frames }. Cambiar frames vacía la RAM. */
+export function setPageAlgorithm(config) {
+  return llamar("memory.configure", config);
+}
+
+/** Estado de la memoria paginada (marcos, tablas de páginas, page faults). Es null si aún no se ha arrancado. */
+export function getMemoryState() {
+  return memoryManager ? memoryManager.getState() : null;
+}
+
 /** Descarta la instancia actual (útil en pruebas). */
 export function resetKernel() {
   kernel = null;
   bootManager = null;
   processManager = null;
+  memoryManager = null;
   threadManager = null;
   scheduler = null;
 }
