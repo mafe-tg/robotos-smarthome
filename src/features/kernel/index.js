@@ -266,3 +266,17 @@ export function resetKernel() {
   threadManager = null;
   scheduler = null;
 }
+
+// ==========================================
+// BENCHMARK CENTER (Fase 6)
+// ==========================================
+export {
+  runCPUBenchmark,
+  runMemoryBenchmark,
+  runRTOSBenchmark,
+  runFullBenchmark,
+  PROCESOS_DEMO_BENCHMARK,
+  SECUENCIA_LIBRO_PAGINAS,
+  SECUENCIA_BELADY,
+  TAREAS_DEMO_RTOS,
+} from "../../resources/BenchmarkCenter.js";
