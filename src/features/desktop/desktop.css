@@ -1,0 +1,148 @@
+/* RobotOS: tokens visuales. Azules eléctricos y morados, con un robot como protagonista. */
+:root {
+  --os-night: #120a35;      /* fondo índigo profundo */
+  --os-panel: #1b1250;      /* marcos de ventana y barras */
+  --os-panel-2: #251a6a;
+  --os-line: #3a2d8c;       /* bordes */
+  --os-ink: #f1edff;
+  --os-mute: #a99fd9;
+  --os-signal: #3de0ff;     /* cian de los ojos del robot: foco y acción principal */
+  --os-on-signal: #120a35;
+  --os-blue: #2f6bff;
+  --os-violet: #7b3cff;
+  --os-pink: #ff4fd8;       /* chispa: selección y detalles */
+  --os-lilac: #eceaff;      /* panel claro del menú */
+  --os-ok: #5fe3a1;
+  --os-alert: #ff5c7a;
+  --os-font: 'Sora', system-ui, sans-serif;
+  --os-display: 'Chakra Petch', 'Sora', sans-serif;
+  --os-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+.os-root {
+  font-family: var(--os-font);
+  color: var(--os-ink);
+  background: var(--os-night);
+}
+.os-mono { font-family: var(--os-mono); }
+.os-display { font-family: var(--os-display); }
+
+/* Fondo de las pantallas de sistema: degradado azul a morado con trama fina */
+.os-grid {
+  background-color: var(--os-night);
+  background-image:
+    radial-gradient(circle at 80% 20%, rgba(47, 107, 255, 0.35), transparent 45%),
+    radial-gradient(circle at 15% 85%, rgba(123, 60, 255, 0.4), transparent 50%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 14px);
+}
+.os-grid.os-plain { background-image: none; }
+
+.os-focus:focus-visible {
+  outline: 2px solid var(--os-signal);
+  outline-offset: 2px;
+}
+
+/* Logotipo: itálica pesada con sombra desplazada en cian y rosa */
+.os-wordmark {
+  font-family: var(--os-display);
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: -0.02em;
+  line-height: 0.85;
+  color: #2a17a8;
+  text-shadow: 5px 5px 0 #7fe9ff, 9px 9px 0 rgba(255, 79, 216, 0.55);
+}
+.os-wordmark.on-dark {
+  color: #ffffff;
+  text-shadow: 5px 5px 0 var(--os-violet), 9px 9px 0 rgba(61, 224, 255, 0.6);
+}
+
+/* Barras inclinadas del menú principal */
+.os-bar {
+  clip-path: polygon(4% 0, 100% 0, 96% 100%, 0 100%);
+}
+.os-chip {
+  clip-path: polygon(8% 0, 100% 0, 92% 100%, 0 100%);
+}
+
+/* Ventanas */
+.os-window {
+  background: var(--os-panel);
+  border: 1px solid var(--os-line);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(8, 3, 30, 0.6);
+}
+.os-window.is-focused {
+  border-color: rgba(61, 224, 255, 0.6);
+  box-shadow: 0 24px 60px rgba(8, 3, 30, 0.6), 0 0 0 1px rgba(61, 224, 255, 0.25);
+}
+.os-window-open { animation: os-open 180ms ease-out; }
+@keyframes os-open {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Robot mascota */
+.os-bob { animation: os-bob 4s ease-in-out infinite; }
+@keyframes os-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.os-blink { animation: os-blink 5s infinite; transform-origin: center; transform-box: fill-box; }
+@keyframes os-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+.os-antenna { animation: os-glow 1.8s ease-in-out infinite; }
+@keyframes os-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* Cambio de app seleccionada en el panel derecho */
+.os-swap { animation: os-swap 220ms ease-out; }
+@keyframes os-swap {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+.os-boot-line { animation: os-line-in 120ms ease-out both; }
+@keyframes os-line-in { from { opacity: 0; } to { opacity: 1; } }
+
+.os-progress { transition: width 260ms ease-out; }
+.os-bar-move { transition: transform 160ms ease-out, background-color 160ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .os-progress, .os-bar-move { transition: none; }
+  .os-bob, .os-blink, .os-antenna, .os-swap, .os-window-open, .os-boot-line { animation: none; }
+}
+
+/* Tema claro de la interfaz principal (casa, barra, dock, menús y bienvenida).
+   Las ventanas de las apps conservan su tema oscuro. */
+.os-light {
+  --os-night: #ffffff;
+  --os-panel: #ffffff;
+  --os-panel-2: #f4f2ff;
+  --os-line: #e4dffa;
+  --os-ink: #1d1260;
+  --os-mute: #6f68a0;
+  --os-signal: #6b4dff;
+  --os-on-signal: #ffffff;
+  --os-ok: #12a66a;
+  --os-alert: #e5345b;
+  color: var(--os-ink);
+}
+.os-light-bg {
+  background-color: #ffffff;
+  background-image:
+    radial-gradient(circle at 92% 8%, rgba(47, 107, 255, 0.10), transparent 40%),
+    radial-gradient(circle at 6% 96%, rgba(123, 60, 255, 0.10), transparent 45%);
+}
+
+/* Apps propias en tema claro: los fondos translúcidos blancos pasan a lavanda */
+.os-applight .bg-white\/5, .os-applight .bg-white\/10, .os-applight .bg-white\/\[0\.06\] { background-color: #efecff; }
+.os-applight .bg-white\/15, .os-applight .bg-white\/20 { background-color: #e4dffa; }
+.os-applight .hover\:bg-white\/5:hover, .os-applight .hover\:bg-white\/10:hover, .os-applight .hover\:bg-white\/20:hover { background-color: #e7e2ff; }
+.os-applight .border-white\/10, .os-applight .border-white\/15 { border-color: #e4dffa; }
+.os-applight .bg-\[var\(--os-night\)\] { background-color: #ffffff; box-shadow: 0 8px 24px rgba(60, 40, 160, 0.06); }
+.os-applight .hover\:text-white:hover { color: var(--os-ink); }

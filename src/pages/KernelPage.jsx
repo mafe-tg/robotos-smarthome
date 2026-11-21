@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { emitSystemEvent } from '../lib/persistence';
 import {
   Activity,
   Cpu,
@@ -129,6 +130,13 @@ export const KernelPage = ({ onNavigate }) => {
   // Función para capturar eventos del kernel
   const handleKernelEvent = (event) => {
     setEventLogs((prev) => [...prev.slice(-49), event]); // Guardar últimos 50 eventos
+    // Integración: los eventos del laboratorio del kernel también quedan en Supabase
+    emitSystemEvent({
+      event_type: event.tipo,
+      source: `KERNEL_LAB:${event.origen}`,
+      description: typeof event.detalle === 'string' ? event.detalle : `${event.tipo} en ${event.origen}`,
+      details: event,
+    });
   };
 
   // ==========================================

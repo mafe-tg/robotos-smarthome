@@ -10,6 +10,9 @@
     "test:os": "node --test \"test/os/*.test.js\""
   },
   "dependencies": {
+    "@fontsource/chakra-petch": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/sora": "^5.3.0",
     "@supabase/supabase-js": "^2.49.1",
     "lucide-react": "^0.475.0",
     "react": "^18.3.1",
