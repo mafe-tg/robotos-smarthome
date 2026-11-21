@@ -14,6 +14,8 @@ import { BootManager } from '../../core/BootManager';
 import { SYSTEM_STATUS } from '../../core/SystemState';
 import { ThreadManager } from '../../resources/ThreadManager';
 import { emitSystemEvent } from '../../lib/persistence';
+import { HardwareManager } from '../hardware/HardwareManager';
+import { diagnose } from '../diagnostics/diagnose';
 
 // Contexto vivo del dashboard (estado y funciones de SystemContext/AuthContext).
 // La terminal lo actualiza en cada render; las system calls lo leen desde aquí.
@@ -22,6 +24,7 @@ const bridge = {
   kernel: null,
   boot: null,
   threads: null,
+  hardware: null,
 };
 
 export function setTerminalContext(ctx) {
@@ -76,7 +79,7 @@ function buildBootChecks() {
 }
 
 /** System calls disponibles para las aplicaciones (la terminal). */
-function registerSyscalls(kernel, threads) {
+function registerSyscalls(kernel, threads, hardware) {
   const sc = kernel.syscalls;
 
   // ── Procesos ──
@@ -126,6 +129,39 @@ function registerSyscalls(kernel, threads) {
 
   // ── Registros ──
   sc.register('sys_logs', (n) => ctx().logs.slice(0, n));
+
+  // ── Hardware del robot (sensores, actuadores y drivers) ──
+  sc.register('sys_hw', () => hardware.snapshot());
+  sc.register('sys_actuator_set', (id, value) => hardware.setActuator(id, value));
+  sc.register('sys_move', (power) => hardware.move(power));
+  sc.register('sys_motors_stop', () => hardware.stopAll());
+  // ── Diagnóstico ──
+  sc.register('sys_diagnose', () => {
+    const c = ctx();
+    return diagnose({
+      kernelStatus: kernel.state.status,
+      processes: c.processes,
+      memoryStats: c.memoryStats,
+      memoryBlocks: c.memoryBlocks,
+      cpuUsage: c.metrics.cpuUsage,
+      batteryPercent: c.metrics.batteryPercent,
+      devices: c.devices,
+      alerts: c.alerts,
+      logs: c.logs,
+      hardware: hardware.snapshot(),
+      hour: new Date().getHours(),
+    });
+  });
+  sc.register('sys_driver', (action, id) => {
+    const ops = {
+      load: () => hardware.loadDriver(id),
+      stop: () => hardware.unloadDriver(id),
+      restart: () => hardware.restartDriver(id),
+      fail: () => hardware.failDriver(id, 'Falla simulada'),
+    };
+    if (!ops[action]) throw new Error(`Acción de driver no válida: ${action}`);
+    return ops[action]();
+  });
 }
 
 /** Eventos del kernel que se guardan en Supabase para auditoría. */
@@ -142,6 +178,41 @@ function forwardEvents(kernel) {
     'thread:terminated': ['THREAD_TERMINATED', 'INFO'],
     'thread:scheduled': ['THREAD_SCHEDULED', 'INFO'],
   };
+
+  // Hardware: solo los eventos importantes (los ciclos del bus no se guardan)
+  const hwPersisted = {
+    'hardware:driver_failed': ['DRIVER_FAILED', 'ERROR'],
+    'hardware:driver_recovered': ['DRIVER_RECOVERED', 'INFO'],
+    'hardware:driver_restarted': ['DRIVER_RESTARTED', 'INFO'],
+    'hardware:driver_loaded': ['DRIVER_LOADED', 'INFO'],
+    'hardware:driver_unloaded': ['DRIVER_UNLOADED', 'WARNING'],
+    'hardware:actuator_set': ['ACTUATOR_SET', 'INFO'],
+    'hardware:obstacle_stop': ['OBSTACLE_STOP', 'WARNING'],
+    'hardware:thermal_stop': ['THERMAL_STOP', 'ERROR'],
+  };
+  const hwMessages = {
+    DRIVER_FAILED: (d) => [`ERROR`, `${d.name} falló: ${d.reason}. El watchdog intentará recuperarlo.`],
+    DRIVER_RECOVERED: (d) => ['INFO', `${d.name} recuperado por el watchdog.`],
+    DRIVER_RESTARTED: (d) => ['INFO', `${d.name} reiniciado.`],
+    DRIVER_UNLOADED: (d) => ['WARNING', `${d.name} detenido. Sus dispositivos quedan sin servicio.`],
+    OBSTACLE_STOP: (d) => ['WARNING', `Obstáculo a ${d.distance} cm: las ruedas se detuvieron.`],
+    THERMAL_STOP: (d) => ['ERROR', `Motores a ${d.temperature} °C: parada térmica de seguridad.`],
+  };
+  for (const [eventName, [type, severity]] of Object.entries(hwPersisted)) {
+    kernel.events.on(eventName, (event) => {
+      const ev = event.payload || event;
+      const d = ev.detalle || {};
+      const description = hwMessages[type] ? hwMessages[type](d)[1] : `${d.name || type}: ${d.from ?? ''} → ${d.to ?? ''} ${d.unit ?? ''}`;
+      emitSystemEvent({ event_type: type, source: 'HARDWARE_MGR', severity, description, details: ev });
+      if (hwMessages[type]) {
+        try {
+          ctx().addLog({ level: hwMessages[type](d)[0], source: 'HARDWARE_MGR', message: description });
+        } catch {
+          /* sin contexto */
+        }
+      }
+    });
+  }
 
   for (const [eventName, [type, severity]] of Object.entries(persisted)) {
     kernel.events.on(eventName, (event) => {
@@ -169,12 +240,14 @@ export function getKernel() {
     },
   });
   const threads = new ThreadManager({ eventEngine: kernel.events, quantum: 2 });
+  const hardware = new HardwareManager({ eventEngine: kernel.events });
 
-  registerSyscalls(kernel, threads);
+  registerSyscalls(kernel, threads, hardware);
   forwardEvents(kernel);
 
   bridge.kernel = kernel;
   bridge.threads = threads;
+  bridge.hardware = hardware;
   return bridge;
 }
 

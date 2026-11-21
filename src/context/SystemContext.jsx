@@ -474,8 +474,13 @@ export const SystemProvider = ({ children }) => {
   const activeAlertsCount = alerts.filter((a) => a.state === 'Activa').length;
 
   // Telemetría del sistema vinculada al estado de memoria de Dana, VFS y EnergyMonitor
+  // CPU: carga base del sistema (14 %) más la CPU de cada proceso en RUNNING.
+  // Con los procesos iniciales da 28 %; abrir apps o ejecutar procesos la sube.
+  const runningCpu = processes
+    .filter((p) => p.state === ESTADOS.RUNNING)
+    .reduce((sum, p) => sum + (Number(p.cpu) || 0), 0);
   const metrics = {
-    cpuUsage: cpuUsageOverride !== null ? cpuUsageOverride : 28,
+    cpuUsage: cpuUsageOverride !== null ? cpuUsageOverride : Math.min(100, Math.round(14 + runningCpu)),
     ramUsageKB: memoryStats.usedKb,
     ramTotalKB: memoryStats.totalKb,
     ramUsageMB: Math.round((memoryStats.usedKb / 1024) * 10) / 10,

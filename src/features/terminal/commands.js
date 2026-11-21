@@ -7,6 +7,7 @@
  * aplicaciones solo acceden a los recursos a través del kernel.
  */
 import { getKernel, bootKernel, shutdownKernel, SYSTEM_STATUS } from './kernelBridge';
+import { runFullBenchmark } from '../../resources/BenchmarkCenter';
 
 // Tipos de línea: 'out' (normal), 'ok', 'err', 'warn', 'info', 'dim'
 const line = (text, type = 'out') => ({ text, type });
@@ -46,12 +47,20 @@ export const COMMAND_HELP = [
   ['devices', 'Lista los dispositivos y su estado'],
   ['toggle <n.º de dispositivo>', 'Enciende, apaga o bloquea un dispositivo'],
   ['logs [n]', 'Últimos registros del sistema (por defecto 10)'],
+  ['sensors', 'Lecturas de los sensores del robot'],
+  ['drivers', 'Drivers del robot y su estado'],
+  ['driver restart | stop | load | fail <id>', 'Controla un driver (stop, load y fail: ADMIN)'],
+  ['motor <actuador> <valor>', 'Mueve un actuador: rueda_izq, rueda_der, brazo, aspiradora'],
+  ['move | stop', 'Pone en marcha o detiene los motores de RX-1'],
+  ['diagnose', 'RX-1 revisa el sistema y sugiere arreglos'],
+  ['bench', 'Benchmark de Sofia: CPU, memoria virtual y tiempo real'],
 ];
 
 export const COMMAND_NAMES = [
   'help', 'clear', 'whoami', 'boot', 'reboot', 'shutdown', 'status', 'syscalls', 'errors',
   'ps', 'run', 'admit', 'exec', 'pause', 'resume', 'kill', 'threads', 'thread',
   'mem', 'compact', 'ls', 'cat', 'write', 'rm', 'devices', 'toggle', 'logs',
+  'sensors', 'drivers', 'driver', 'motor', 'move', 'stop', 'diagnose', 'bench',
 ];
 
 /** Divide la línea respetando comillas: write /a.txt "hola mundo" */
@@ -356,6 +365,101 @@ export async function runCommand(input, { role, user, checkPermission, addLog, o
           const type = l.level === 'ERROR' || l.level === 'CRITICAL' ? 'err' : l.level === 'WARNING' ? 'warn' : 'out';
           out.push(line(`${l.timestamp} [${l.level}] ${l.source}: ${l.message}`, type));
         }
+        break;
+      }
+
+      case 'sensors': {
+        const hw = await call('sys_hw');
+        out.push(line(`${pad('SENSOR', 34)}${pad('VALOR', 14)}${pad('DRIVER', 15)}ESTADO`, 'info'));
+        for (const x of hw.sensors) {
+          const value = x.value === null ? 'sin lectura' : `${x.value} ${x.unit}`;
+          const st = x.status === 'OK' ? 'normal' : x.status === 'ALERTA' ? 'fuera de rango' : 'sin driver';
+          out.push(line(`${pad(x.name, 34)}${pad(value, 14)}${pad(x.driver, 15)}${st}`, x.status === 'OK' ? 'out' : x.status === 'ALERTA' ? 'warn' : 'err'));
+        }
+        out.push(line(`Actuadores: ${hw.actuators.map((a) => `${a.id}=${a.value}${a.unit}`).join('  ')}`, 'dim'));
+        break;
+      }
+
+      case 'drivers': {
+        const hw = await call('sys_hw');
+        out.push(line(`${pad('ID', 15)}${pad('DRIVER', 34)}${pad('VERSIÓN', 9)}${pad('BUS', 6)}${pad('ESTADO', 11)}FALLAS`, 'info'));
+        for (const d of hw.drivers) {
+          const type = d.status === 'ACTIVE' ? 'out' : d.status === 'FAILED' ? 'err' : 'warn';
+          out.push(line(`${pad(d.id, 15)}${pad(d.name, 34)}${pad(d.version, 9)}${pad(d.bus, 6)}${pad(d.status, 11)}${d.failures}`, type));
+        }
+        break;
+      }
+
+      case 'driver': {
+        const action = requireArg(args[0], 'driver restart | stop | load | fail <id>').toLowerCase();
+        const id = requireArg(args[1], 'driver restart | stop | load | fail <id>');
+        const needed = action === 'restart' ? 'USER' : 'ADMIN';
+        if (!checkPermission(needed, `Driver ${action} ${id} desde la terminal`, addLog)) {
+          out.push(line(`driver ${action}: permiso denegado (se requiere ${needed}).`, 'err'));
+          break;
+        }
+        const d = await call('sys_driver', action, id);
+        const msg = { restart: 'reiniciado', stop: 'detenido', load: 'cargado', fail: 'en falla simulada; el watchdog lo recuperará' }[action];
+        out.push(line(`${d.name}: ${msg}. Estado: ${d.status}.`, action === 'fail' || action === 'stop' ? 'warn' : 'ok'));
+        break;
+      }
+
+      case 'motor': {
+        const id = requireArg(args[0], 'motor <actuador> <valor>');
+        const value = requireArg(args[1], 'motor <actuador> <valor>');
+        if (!checkPermission('USER', `Mover ${id} desde la terminal`, addLog)) {
+          out.push(line('motor: permiso denegado.', 'err'));
+          break;
+        }
+        const a = await call('sys_actuator_set', id, value);
+        out.push(line(`${a.name}: ${a.value} ${a.unit}`, 'ok'));
+        break;
+      }
+
+      case 'move':
+      case 'stop': {
+        if (!checkPermission('USER', `Motores (${cmd}) desde la terminal`, addLog)) {
+          out.push(line(`${cmd}: permiso denegado.`, 'err'));
+          break;
+        }
+        if (cmd === 'move') {
+          await call('sys_move', Number(args[0]) || 60);
+          out.push(line('RX-1 en movimiento: ruedas al ' + (Number(args[0]) || 60) + ' % durante 3 ciclos.', 'ok'));
+        } else {
+          await call('sys_motors_stop');
+          out.push(line('Motores detenidos.', 'ok'));
+        }
+        break;
+      }
+
+      case 'diagnose': {
+        const r = await call('sys_diagnose');
+        out.push(line(`Salud del sistema: ${r.score}/100. ${r.summary}`, r.level === 'ok' ? 'ok' : r.level === 'warning' ? 'warn' : 'err'));
+        for (const f of r.findings) {
+          const type = f.severity === 'critical' ? 'err' : f.severity === 'warning' ? 'warn' : 'info';
+          out.push(line(`  [${f.area}] ${f.title}`, type));
+          out.push(line(`      ${f.detail}${f.action ? `  Sugerencia: ${f.action.label}.` : ''}`, 'dim'));
+        }
+        break;
+      }
+
+      case 'bench': {
+        await call('sys_ps'); // exige kernel en RUNNING, como cualquier aplicación
+        const b = runFullBenchmark();
+        out.push(line('CPU (4 procesos de prueba):', 'info'));
+        for (const r of b.cpu.resultados) {
+          out.push(line(`  ${pad(r.etiqueta, 28)}espera ${pad(r.esperaPromedio, 6)}retorno ${pad(r.retornoPromedio, 7)}cambios de contexto ${r.cambiosContexto}`));
+        }
+        out.push(line('Memoria virtual (FIFO frente a LRU):', 'info'));
+        for (const m of b.memoria.comparativaPorMarcos) {
+          out.push(line(`  ${m.marcos} marcos: FIFO ${m.fifo.pageFaults} fallos, LRU ${m.lru.pageFaults} fallos. Mejor: ${m.mejor}`));
+        }
+        const be = b.memoria.analisisBelady;
+        out.push(line(`  Anomalía de Belady: FIFO pasa de ${be.fifo3Marcos} a ${be.fifo4Marcos} fallos con más marcos; LRU baja de ${be.lru3Marcos} a ${be.lru4Marcos}.`, 'warn'));
+        out.push(line(`Tiempo real (utilización ${Math.round(b.rtos.utilizacion * 100)} %):`, 'info'));
+        out.push(line(`  EDF: ${b.rtos.edf.deadlinesCumplidos} plazos cumplidos, ${b.rtos.edf.deadlinesPerdidos} perdidos`));
+        out.push(line(`  Rate Monotonic: ${b.rtos.rm.deadlinesCumplidos} cumplidos, ${b.rtos.rm.deadlinesPerdidos} perdidos`));
+        out.push(line(`Ganador en tiempo real: ${b.rtos.ganador}`, 'ok'));
         break;
       }
 

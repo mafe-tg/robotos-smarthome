@@ -1,0 +1,222 @@
+/* Tema claro para las pantallas que se abren en ventanas (generado). */
+.os-skin { background: #f7f6ff; color: #1d1260; }
+.os-skin h1:not(.os-noskin *):not(.os-noskin), .os-skin h2:not(.os-noskin *):not(.os-noskin) { font-family: var(--os-display); font-style: italic; letter-spacing: -0.01em; }
+.os-skin .text-white:not([class*='-500']):not([class*='-600']):not([class*='-700']):not([class*='from-']):not(.os-noskin *):not(.os-noskin) { color: #1d1260; }
+.os-skin .hover\:text-white:hover:not([class*='-500']):not([class*='-600']):not([class*='-700']):not(.os-noskin *):not(.os-noskin) { color: #1d1260; }
+.os-skin input:not(.os-noskin *):not(.os-noskin), .os-skin select:not(.os-noskin *):not(.os-noskin), .os-skin textarea:not(.os-noskin *):not(.os-noskin) { color: #1d1260; }
+.os-skin option { background: #ffffff; color: #1d1260; }
+.os-skin .shadow-lg:not(.os-noskin *):not(.os-noskin), .os-skin .shadow-xl:not(.os-noskin *):not(.os-noskin) { box-shadow: 0 10px 28px rgba(60,40,160,0.10); }
+.os-skin .rounded-xl:not(.os-noskin *):not(.os-noskin) { border-radius: 16px; }
+.os-skin .rounded-2xl:not(.os-noskin *):not(.os-noskin) { border-radius: 22px; }
+.os-skin .bg-slate-950:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-slate-950\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-slate-950\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-slate-950\/70:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-slate-950\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-slate-900\/40:hover:not(.os-noskin *):not(.os-noskin) { background-color: #f4f2ff; }
+.os-skin .bg-slate-900:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-slate-900\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-slate-900\/80:not(.os-noskin *):not(.os-noskin) { background-color: #ffffff; }
+.os-skin .bg-slate-800:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-slate-800\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-slate-800\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-slate-800\/80:not(.os-noskin *):not(.os-noskin) { background-color: #efecff; }
+.os-skin .bg-slate-700:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-slate-700:hover:not(.os-noskin *):not(.os-noskin) { background-color: #e4dffa; }
+.os-skin .hover\:bg-slate-800:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-slate-800\/30:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-slate-800\/40:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-slate-800\/60:hover:not(.os-noskin *):not(.os-noskin) { background-color: #ebe6ff; }
+.os-skin .text-slate-100:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-slate-200:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-slate-300:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:text-slate-200:hover:not(.os-noskin *):not(.os-noskin) { color: #1d1260; }
+.os-skin .text-slate-400:not(.os-noskin *):not(.os-noskin) { color: #6f68a0; }
+.os-skin .text-slate-500:not(.os-noskin *):not(.os-noskin) { color: #8a84b5; }
+.os-skin .text-slate-600:not(.os-noskin *):not(.os-noskin) { color: #a09bc4; }
+.os-skin .border-slate-700:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-slate-800:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-slate-800\/50:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-slate-800\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-slate-800\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .divide-slate-800\/50:not(.os-noskin *):not(.os-noskin),
+.os-skin .divide-slate-800\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-slate-950\/60:not(.os-noskin *):not(.os-noskin) { border-color: #e4dffa; }
+.os-skin .border-slate-600:not(.os-noskin *):not(.os-noskin) { border-color: #d6cff7; }
+.os-skin .hover\:border-slate-600:hover:not(.os-noskin *):not(.os-noskin) { border-color: #c9bff5; }
+.os-skin .bg-cyan-950:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-cyan-950\/20:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-cyan-950\/30:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-cyan-950\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-cyan-950\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-cyan-950\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-cyan-950\/90:not(.os-noskin *):not(.os-noskin) { background-color: #ecfeff; }
+.os-skin .hover\:bg-cyan-900\/60:hover:not(.os-noskin *):not(.os-noskin) { background-color: #cffafe; }
+.os-skin .text-cyan-200:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-cyan-300:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-cyan-400:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-cyan-400\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:text-cyan-300:hover:not(.os-noskin *):not(.os-noskin) { color: #0e7490; }
+.os-skin .border-cyan-400:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-500:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-500\/30:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-500\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-500\/50:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-500\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-700:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-700\/50:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-800:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-800\/30:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-800\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-800\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-800\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-900\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-cyan-900\/60:not(.os-noskin *):not(.os-noskin) { border-color: #a5f3fc; }
+.os-skin .bg-emerald-950:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-emerald-950\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-emerald-950\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-emerald-950\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-emerald-950\/90:not(.os-noskin *):not(.os-noskin) { background-color: #ecfdf5; }
+.os-skin .hover\:bg-emerald-900:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-emerald-900\/60:hover:not(.os-noskin *):not(.os-noskin) { background-color: #d1fae5; }
+.os-skin .text-emerald-200:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-emerald-300:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-emerald-400:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-emerald-400\/80:not(.os-noskin *):not(.os-noskin) { color: #047857; }
+.os-skin .border-emerald-500\/30:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-emerald-500\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-emerald-500\/50:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-emerald-500\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-emerald-700:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-emerald-700\/50:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-emerald-700\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-emerald-700\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-emerald-800:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-emerald-800\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-emerald-800\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-emerald-800\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-emerald-900\/40:not(.os-noskin *):not(.os-noskin) { border-color: #a7f3d0; }
+.os-skin .bg-amber-950:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-amber-950\/20:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-amber-950\/30:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-amber-950\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-amber-950\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-amber-950\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-amber-950\/90:not(.os-noskin *):not(.os-noskin) { background-color: #fffbeb; }
+.os-skin .hover\:bg-amber-900:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-amber-900\/60:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-amber-950\/20:hover:not(.os-noskin *):not(.os-noskin) { background-color: #fef3c7; }
+.os-skin .text-amber-200:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-amber-300:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-amber-400:not(.os-noskin *):not(.os-noskin) { color: #b45309; }
+.os-skin .border-amber-400:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-500\/30:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-500\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-500\/50:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-500\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-600\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-600\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-700:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-700\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-700\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-800:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-800\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-800\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-900\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-amber-900\/60:not(.os-noskin *):not(.os-noskin) { border-color: #fde68a; }
+.os-skin .bg-red-950:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-red-950\/20:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-red-950\/30:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-red-950\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-red-950\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-red-950\/70:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-red-950\/80:not(.os-noskin *):not(.os-noskin) { background-color: #fef2f2; }
+.os-skin .hover\:bg-red-900:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-red-900\/40:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-red-900\/60:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-red-950:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-red-950\/20:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-red-950\/60:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-red-950\/80:hover:not(.os-noskin *):not(.os-noskin) { background-color: #fee2e2; }
+.os-skin .text-red-200:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-red-200\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-red-300:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-red-400:not(.os-noskin *):not(.os-noskin) { color: #b91c1c; }
+.os-skin .text-red-500:not(.os-noskin *):not(.os-noskin) { color: #dc2626; }
+.os-skin .border-red-500:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-500\/30:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-500\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-500\/50:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-500\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-500\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-700:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-700\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-700\/50:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-700\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-700\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-800:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-800\/50:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-800\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-800\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-800\/90:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-red-900\/60:not(.os-noskin *):not(.os-noskin) { border-color: #fecaca; }
+.os-skin .bg-blue-950:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-blue-950\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-blue-950\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-blue-950\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-blue-950\/90:not(.os-noskin *):not(.os-noskin) { background-color: #eff6ff; }
+.os-skin .hover\:bg-blue-900:hover:not(.os-noskin *):not(.os-noskin) { background-color: #dbeafe; }
+.os-skin .text-blue-300:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-blue-400:not(.os-noskin *):not(.os-noskin) { color: #1d4ed8; }
+.os-skin .border-blue-500\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-blue-700:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-blue-700\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-blue-700\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-blue-800:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-blue-800\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-blue-800\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-blue-900\/40:not(.os-noskin *):not(.os-noskin) { border-color: #bfdbfe; }
+.os-skin .bg-purple-950:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-purple-950\/10:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-purple-950\/20:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-purple-950\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-purple-950\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-purple-950\/90:not(.os-noskin *):not(.os-noskin) { background-color: #faf5ff; }
+.os-skin .text-purple-300:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-purple-400:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-purple-400\/80:not(.os-noskin *):not(.os-noskin) { color: #7e22ce; }
+.os-skin .border-purple-400:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-purple-500\/30:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-purple-500\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-purple-700\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-purple-800:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-purple-800\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-purple-900\/40:not(.os-noskin *):not(.os-noskin) { border-color: #e9d5ff; }
+.os-skin .bg-orange-950:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-orange-950\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-orange-950\/80:not(.os-noskin *):not(.os-noskin) { background-color: #fff7ed; }
+.os-skin .hover\:bg-orange-900:hover:not(.os-noskin *):not(.os-noskin),
+.os-skin .hover\:bg-orange-950\/20:hover:not(.os-noskin *):not(.os-noskin) { background-color: #ffedd5; }
+.os-skin .text-orange-300:not(.os-noskin *):not(.os-noskin),
+.os-skin .text-orange-400:not(.os-noskin *):not(.os-noskin) { color: #c2410c; }
+.os-skin .border-orange-500\/40:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-orange-700\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-orange-700\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-orange-800\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-orange-800\/80:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-orange-900\/40:not(.os-noskin *):not(.os-noskin) { border-color: #fed7aa; }
+.os-skin .bg-yellow-950:not(.os-noskin *):not(.os-noskin) { background-color: #fefce8; }
+.os-skin .text-yellow-400:not(.os-noskin *):not(.os-noskin) { color: #a16207; }
+.os-skin .border-yellow-800\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-yellow-900\/40:not(.os-noskin *):not(.os-noskin) { border-color: #fef08a; }
+.os-skin .bg-sky-950\/90:not(.os-noskin *):not(.os-noskin) { background-color: #f0f9ff; }
+.os-skin .text-sky-300:not(.os-noskin *):not(.os-noskin) { color: #0369a1; }
+.os-skin .border-sky-500\/80:not(.os-noskin *):not(.os-noskin) { border-color: #bae6fd; }
+.os-skin .bg-rose-950\/90:not(.os-noskin *):not(.os-noskin) { background-color: #fff1f2; }
+.os-skin .text-rose-300:not(.os-noskin *):not(.os-noskin) { color: #be123c; }
+.os-skin .border-rose-500\/80:not(.os-noskin *):not(.os-noskin) { border-color: #fecdd3; }
+.os-skin .bg-fuchsia-950:not(.os-noskin *):not(.os-noskin),
+.os-skin .bg-fuchsia-950\/40:not(.os-noskin *):not(.os-noskin) { background-color: #fdf4ff; }
+.os-skin .text-fuchsia-300:not(.os-noskin *):not(.os-noskin) { color: #a21caf; }
+.os-skin .border-fuchsia-700\/60:not(.os-noskin *):not(.os-noskin),
+.os-skin .border-fuchsia-800:not(.os-noskin *):not(.os-noskin) { border-color: #f5d0fe; }

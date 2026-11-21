@@ -169,7 +169,7 @@ export const TerminalPage = () => {
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
         {/* Terminal */}
         <div
-          className="xl:col-span-3 rounded-2xl bg-black border border-slate-800 shadow-xl overflow-hidden flex flex-col"
+          className="os-noskin xl:col-span-3 rounded-2xl bg-black border border-slate-800 shadow-xl overflow-hidden flex flex-col"
           onClick={() => inputRef.current?.focus()}
         >
           <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-950 border-b border-slate-800">
