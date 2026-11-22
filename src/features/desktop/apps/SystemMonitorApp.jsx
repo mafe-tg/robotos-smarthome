@@ -186,7 +186,7 @@ const PerformanceTab = () => {
     sample();
     const t = setInterval(sample, 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [metrics.cpuUsage, memoryStats.usedKb]);
 
   const snap = kernel.state.snapshot();
   const ramPct = memoryStats.totalKb ? Math.round((memoryStats.usedKb / memoryStats.totalKb) * 100) : 0;

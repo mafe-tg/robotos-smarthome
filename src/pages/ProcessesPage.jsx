@@ -814,7 +814,7 @@ export const ProcessesPage = () => {
                               ? 'bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-700/80 shadow-sm cursor-pointer'
                               : 'bg-slate-950 text-slate-600 border border-slate-800/50 cursor-not-allowed opacity-40'
                           }`}
-                          title={canResume ? 'Reanudar proceso (READY)' : 'No aplica al estado actual'}
+                          title={canResume ? 'Reanudar y ejecutar de nuevo (RUNNING)' : 'No aplica al estado actual'}
                         >
                           🔄 Reanudar
                         </button>

@@ -14,6 +14,7 @@ import {
 
 export const ResourceCharts = ({
   cpuUsage,
+  powerDrawWatts = 115,
   ramUsageMB,
   ramTotalMB,
   storageUsageMB,
@@ -21,14 +22,40 @@ export const ResourceCharts = ({
   storageUsageGB,
   storageTotalGB,
 }) => {
-  const cpuHistory = [
-    { time: '20:10', cpu: 15, power: 90 },
-    { time: '20:11', cpu: 22, power: 105 },
-    { time: '20:12', cpu: 35, power: 130 },
-    { time: '20:13', cpu: 18, power: 95 },
-    { time: '20:14', cpu: 24, power: 110 },
-    { time: '20:15', cpu: cpuUsage, power: 115 },
-  ];
+  const [history, setHistory] = React.useState(() => {
+    const baseP = powerDrawWatts || 115;
+    const baseC = cpuUsage || 28;
+    const now = new Date();
+    const pts = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 10000);
+      const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+      pts.push({
+        time: timeStr,
+        cpu: Math.max(8, Math.min(100, Math.round(baseC - i * 2 + Math.sin(i) * 3))),
+        power: Math.max(35, Math.round(baseP - i * 3 + Math.cos(i) * 5)),
+      });
+    }
+    return pts;
+  });
+
+  React.useEffect(() => {
+    const sample = () => {
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      setHistory((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last.time === timeStr && last.cpu === cpuUsage && last.power === Math.round(powerDrawWatts)) {
+          return prev;
+        }
+        return [...prev.slice(-9), { time: timeStr, cpu: cpuUsage, power: Math.round(powerDrawWatts || 115) }];
+      });
+    };
+
+    sample();
+    const timer = setInterval(sample, 3000);
+    return () => clearInterval(timer);
+  }, [cpuUsage, powerDrawWatts]);
 
   const actualUsed = storageUsageMB !== undefined ? storageUsageMB : storageUsageGB || 4.5;
   const actualTotal = storageTotalMB !== undefined ? storageTotalMB : storageTotalGB || 10.0;
@@ -66,7 +93,7 @@ export const ResourceCharts = ({
 
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={cpuHistory} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+            <AreaChart data={history} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <defs>
                 <linearGradient id="cpuGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#06B6D4" stopOpacity={0.4} />
@@ -99,7 +126,7 @@ export const ResourceCharts = ({
                 stroke="#3B82F6"
                 fontSize={11}
                 tickLine={false}
-                domain={[0, 180]}
+                domain={[0, 260]}
                 tickFormatter={(val) => `${val}W`}
               />
 

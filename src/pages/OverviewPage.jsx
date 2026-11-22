@@ -152,6 +152,7 @@ export const OverviewPage = ({ onNavigate }) => {
 
           <ResourceCharts
             cpuUsage={metrics.cpuUsage}
+            powerDrawWatts={metrics.powerDrawWatts}
             ramUsageMB={metrics.ramUsageMB}
             ramTotalMB={metrics.ramTotalMB}
             storageUsageMB={metrics.storageUsageMB}
