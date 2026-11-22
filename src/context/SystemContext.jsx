@@ -563,6 +563,47 @@ export const SystemProvider = ({ children }) => {
     robotStatus: activeAlertsCount > 0 ? 'EN ALERTA' : 'OPERATIVO',
   };
 
+  // Historial continuo de telemetría de 60 segundos (CPU, RAM y Potencia) para el Monitor y gráficos
+  const [telemetryHistory, setTelemetryHistory] = useState(() => {
+    const pts = [];
+    const baseC = totalCpuUsage || 48;
+    const baseR = memoryStats.totalKb ? Math.round((memoryStats.usedKb / memoryStats.totalKb) * 100) : 78;
+    for (let i = 59; i >= 0; i--) {
+      const varC = Math.round(Math.sin(i / 2) * 2);
+      pts.push({
+        t: 59 - i,
+        cpu: Math.max(5, Math.min(100, baseC + varC)),
+        ram: baseR,
+        power: Math.round(45 + baseC * 0.5),
+      });
+    }
+    return pts;
+  });
+
+  const latestMetricsRef = useRef({ cpu: totalCpuUsage, ramKb: memoryStats.usedKb, power: totalPowerWatts });
+  latestMetricsRef.current = { cpu: totalCpuUsage, ramKb: memoryStats.usedKb, power: totalPowerWatts };
+
+  useEffect(() => {
+    const sample = () => {
+      const cur = latestMetricsRef.current;
+      const ramPct = memoryStats.totalKb
+        ? Math.round((cur.ramKb / memoryStats.totalKb) * 100)
+        : 78;
+      setTelemetryHistory((prev) => [
+        ...prev.slice(-59),
+        {
+          cpu: cur.cpu,
+          ram: ramPct,
+          power: cur.power,
+        },
+      ].map((d, i) => ({ ...d, t: i })));
+    };
+
+    sample();
+    const timer = setInterval(sample, 1000);
+    return () => clearInterval(timer);
+  }, [totalCpuUsage, memoryStats.usedKb, totalPowerWatts, memoryStats.totalKb]);
+
   const getNowTimestamp = () => {
     const d = new Date();
     return d.toTimeString().split(' ')[0];
@@ -1288,6 +1329,7 @@ export const SystemProvider = ({ children }) => {
     <SystemContext.Provider
       value={{
         metrics,
+        telemetryHistory,
         processes,
         memoryBlocks,
         memoryStats,

@@ -29,7 +29,7 @@ const tab = (active) =>
 const btn = 'os-focus h-8 px-3 rounded-md text-sm flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed';
 
 const ProcessesTab = () => {
-  const { processes, pauseProcess, resumeProcess, terminateProcess, addLog } = useSystem();
+  const { processes, pauseProcess, resumeProcess, executeProcess, terminateProcess, addLog } = useSystem();
   const { checkPermission } = useAuth();
   const { notify, closeApp } = useDesktop();
   const [showEnded, setShowEnded] = useState(false);
@@ -125,11 +125,15 @@ const ProcessesTab = () => {
           <Pause className="w-4 h-4" /> Pausar
         </button>
         <button
-          disabled={!sel || sel.state !== 'WAITING'}
-          onClick={() => checkPermission('USER', `Reanudar PID ${sel.pid}`, addLog) && resumeProcess(sel.id)}
+          disabled={!sel || (sel.state !== 'WAITING' && sel.state !== 'READY')}
+          onClick={() => {
+            if (!checkPermission('USER', `${sel.state === 'READY' ? 'Ejecutar' : 'Reanudar'} PID ${sel.pid}`, addLog)) return;
+            if (sel.state === 'WAITING') resumeProcess(sel.id);
+            else if (sel.state === 'READY') executeProcess(sel.id);
+          }}
           className={`${btn} hover:bg-white/5`}
         >
-          <Play className="w-4 h-4" /> Reanudar
+          <Play className="w-4 h-4" /> {sel?.state === 'READY' ? 'Ejecutar' : 'Reanudar'}
         </button>
         <button
           disabled={!sel || sel.state === 'TERMINATED'}
@@ -169,24 +173,10 @@ const Chart = ({ data, dataKey, color, label, value }) => (
 );
 
 const PerformanceTab = () => {
-  const { metrics, memoryStats, memoryBlocks, compactMemory, addLog, processes } = useSystem();
+  const { metrics, memoryStats, memoryBlocks, compactMemory, addLog, processes, telemetryHistory } = useSystem();
   const { checkPermission } = useAuth();
   const { notify } = useDesktop();
   const { kernel } = getKernel();
-  const latest = useRef(metrics);
-  latest.current = metrics;
-  const [series, setSeries] = useState([]);
-
-  useEffect(() => {
-    const sample = () => {
-      const m = latest.current;
-      const ram = m.ramTotalKB ? Math.round((m.ramUsageKB / m.ramTotalKB) * 100) : 0;
-      setSeries((prev) => [...prev.slice(-59), { cpu: m.cpuUsage, ram }].map((d, i) => ({ ...d, t: i })));
-    };
-    sample();
-    const t = setInterval(sample, 1000);
-    return () => clearInterval(t);
-  }, [metrics.cpuUsage, memoryStats.usedKb]);
 
   const snap = kernel.state.snapshot();
   const ramPct = memoryStats.totalKb ? Math.round((memoryStats.usedKb / memoryStats.totalKb) * 100) : 0;
@@ -212,8 +202,8 @@ const PerformanceTab = () => {
   return (
     <div className="p-4 space-y-4 overflow-auto h-full">
       <div className="grid md:grid-cols-2 gap-4">
-        <Chart data={series} dataKey="cpu" color="#f4b740" label="CPU" value={`${metrics.cpuUsage}%`} />
-        <Chart data={series} dataKey="ram" color="#6ccb8e" label="Memoria RAM" value={`${ramPct}%`} />
+        <Chart data={telemetryHistory || []} dataKey="cpu" color="#f4b740" label="CPU" value={`${metrics.cpuUsage}%`} />
+        <Chart data={telemetryHistory || []} dataKey="ram" color="#6ccb8e" label="Memoria RAM" value={`${ramPct}%`} />
       </div>
       <div className="grid md:grid-cols-2 gap-4">
         <section className="p-4 rounded-2xl bg-[var(--os-night)] border border-[var(--os-line)]">
