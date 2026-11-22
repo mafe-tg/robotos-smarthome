@@ -9,7 +9,7 @@
  * - Muestra qué proceso controla cada dispositivo (causa y efecto).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Play, Square, Minus, Plus } from 'lucide-react';
+import { Play, Square, Pause, Minus, Plus } from 'lucide-react';
 import { useSystem } from '../../../context/SystemContext';
 import { useAuth } from '../../../context/AuthContext';
 import { PROCESS_ROOM, GUEST_VISIBLE_DEVICES } from '../../../components/twin/TwinEngine';
@@ -41,10 +41,15 @@ export const TwinApp = () => {
   const [timeline, setTimeline] = useState(null); // [{ tick, pid, nombre }]
   const [cursor, setCursor] = useState(null);
   const [playing, setPlaying] = useState(false);
+  const [paused, setPaused] = useState(false);
   const timer = useRef(null);
   const playingRef = useRef(false);
+  const cursorRef = useRef(0);
+  const lineaRef = useRef([]);
+  const intervalRef = useRef(1000);
 
   const intervalMs = twin.robot.moveIntervalMs || 1000;
+  intervalRef.current = intervalMs;
 
   const colorOf = useMemo(() => {
     const map = {};
@@ -54,16 +59,54 @@ export const TwinApp = () => {
     return map;
   }, [timeline]);
 
+  // Al detener, RX-1 deja la simulación y vuelve a su posición real
   const stop = useCallback(() => {
     clearTimeout(timer.current);
     playingRef.current = false;
     setPlaying(false);
-  }, []);
+    setPaused(false);
+    setCursor(null);
+    addLog({ level: 'INFO', source: 'TWIN_DIGITAL', message: 'Gemelo: simulación detenida, RX-1 vuelve a su tarea real.' });
+  }, [addLog]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
+  // Avanza la simulación desde el tick guardado en cursorRef
+  const step = () => {
+    if (!playingRef.current) return;
+    const linea = lineaRef.current;
+    cursorRef.current += 1;
+    if (cursorRef.current >= linea.length) {
+      playingRef.current = false;
+      setPlaying(false);
+      setPaused(false);
+      setCursor(null);
+      addLog({ level: 'INFO', source: 'TWIN_DIGITAL', message: `Gemelo: reproducción terminada (${linea.length} ticks).` });
+      return;
+    }
+    setCursor(cursorRef.current);
+    timer.current = setTimeout(step, intervalRef.current);
+  };
+
+  // Pausa: RX-1 se queda en el tick actual de la simulación
+  const pause = () => {
+    clearTimeout(timer.current);
+    playingRef.current = false;
+    setPlaying(false);
+    setPaused(true);
+  };
+
+  // Continuar: sigue desde el tick donde se pausó, sin volver a empezar
+  const resume = () => {
+    playingRef.current = true;
+    setPaused(false);
+    setPlaying(true);
+    timer.current = setTimeout(step, intervalRef.current);
+  };
+
   const play = () => {
-    if (playing) return stop();
+    if (playing) return pause();
+    if (paused) return resume();
     const activos = processes.filter((p) => p.state !== ESTADOS.TERMINATED);
     if (!activos.length) {
       notify?.('No hay procesos activos', 'Crea o reanuda un proceso para reproducir el planificador.', 'warning');
@@ -92,7 +135,10 @@ export const TwinApp = () => {
     }
 
     setTimeline(linea);
+    lineaRef.current = linea;
+    cursorRef.current = 0;
     setCursor(0);
+    setPaused(false);
     setPlaying(true);
     playingRef.current = true;
     const label = algo === ALGORITMOS.ROUND_ROBIN ? `Round Robin (quantum ${quantum})` : 'Prioridad';
@@ -104,20 +150,6 @@ export const TwinApp = () => {
       details: { algoritmo: algo, quantum, ticks: linea.length, interval_ms: intervalMs },
     });
 
-    let i = 0;
-    const step = () => {
-      if (!playingRef.current) return;
-      i += 1;
-      if (i >= linea.length) {
-        playingRef.current = false;
-        setPlaying(false);
-        setCursor(null);
-        addLog({ level: 'INFO', source: 'TWIN_DIGITAL', message: `Gemelo: reproducción terminada (${linea.length} ticks).` });
-        return;
-      }
-      setCursor(i);
-      timer.current = setTimeout(step, intervalMs);
-    };
     timer.current = setTimeout(step, intervalMs);
     return undefined;
   };
@@ -136,8 +168,19 @@ export const TwinApp = () => {
       {!isGuest && (
         <section className={`${card} p-4 flex flex-wrap items-center gap-3`}>
           <div className="mr-auto min-w-[200px]">
-            <h3 className="os-display text-lg font-bold italic">Reproducir el planificador</h3>
-            <p className="text-sm text-[var(--os-mute)]">RX-1 se mueve tick a tick según el diagrama de Gantt del kernel.</p>
+            <h3 className="os-display text-lg font-bold italic flex items-center gap-2">
+              Reproducir el planificador
+              {(playing || paused) && (
+                <span className="px-2.5 py-0.5 rounded-full bg-[var(--os-pink)] text-white text-xs not-italic font-semibold">
+                  {paused ? 'Simulación en pausa' : 'Simulación'}
+                </span>
+              )}
+            </h3>
+            <p className="text-sm text-[var(--os-mute)]">
+              {playing || paused
+                ? 'Es una simulación sobre una copia de los procesos: los procesos reales no cambian. Al detener, RX-1 vuelve a su posición real.'
+                : 'Simula el planificador sobre una copia de los procesos y mueve a RX-1 tick a tick según el diagrama de Gantt.'}
+            </p>
           </div>
           <div className="flex rounded-full bg-[var(--os-panel-2)] p-1" role="radiogroup" aria-label="Algoritmo">
             {[
@@ -148,7 +191,7 @@ export const TwinApp = () => {
                 key={value}
                 role="radio"
                 aria-checked={algo === value}
-                disabled={playing}
+                disabled={playing || paused}
                 onClick={() => setAlgo(value)}
                 className={`os-focus h-8 px-4 rounded-full text-sm ${algo === value ? 'bg-white shadow font-semibold text-[var(--os-signal)]' : 'text-[var(--os-mute)]'}`}
               >
@@ -158,24 +201,30 @@ export const TwinApp = () => {
           </div>
           {algo === ALGORITMOS.ROUND_ROBIN && (
             <div className="flex items-center gap-1 rounded-full bg-[var(--os-panel-2)] p-1" aria-label="Quantum">
-              <button disabled={playing} onClick={() => setQuantum((q) => Math.max(1, q - 1))} className="os-focus w-7 h-7 rounded-full grid place-items-center hover:bg-white" aria-label="Menos quantum">
+              <button disabled={playing || paused} onClick={() => setQuantum((q) => Math.max(1, q - 1))} className="os-focus w-7 h-7 rounded-full grid place-items-center hover:bg-white" aria-label="Menos quantum">
                 <Minus className="w-3.5 h-3.5" />
               </button>
               <span className="text-sm px-1 tabular-nums">Quantum {quantum}</span>
-              <button disabled={playing} onClick={() => setQuantum((q) => Math.min(20, q + 1))} className="os-focus w-7 h-7 rounded-full grid place-items-center hover:bg-white" aria-label="Más quantum">
+              <button disabled={playing || paused} onClick={() => setQuantum((q) => Math.min(20, q + 1))} className="os-focus w-7 h-7 rounded-full grid place-items-center hover:bg-white" aria-label="Más quantum">
                 <Plus className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
           <button
             onClick={play}
-            className={`os-focus h-10 px-5 rounded-full text-sm font-semibold flex items-center gap-2 text-white ${
-              playing ? 'bg-[var(--os-alert)]' : 'bg-gradient-to-r from-[var(--os-blue)] to-[var(--os-violet)]'
-            }`}
+            className="os-focus h-10 px-5 rounded-full text-sm font-semibold flex items-center gap-2 text-white bg-gradient-to-r from-[var(--os-blue)] to-[var(--os-violet)]"
           >
-            {playing ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-            {playing ? 'Detener' : 'Reproducir'}
+            {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            {playing ? 'Pausar' : paused ? 'Continuar' : 'Reproducir'}
           </button>
+          {(playing || paused) && (
+            <button
+              onClick={stop}
+              className="os-focus h-10 px-5 rounded-full text-sm font-semibold flex items-center gap-2 text-white bg-[var(--os-alert)]"
+            >
+              <Square className="w-4 h-4" /> Detener
+            </button>
+          )}
 
           {timeline && (
             <div className="basis-full">
@@ -215,7 +264,7 @@ export const TwinApp = () => {
             onSelectRoom={() => {}}
             robotRoom={room}
             transitionMs={playing ? Math.round(intervalMs * 0.85) : 1400}
-            caption={current ? `Tick ${current.tick}: ${current.nombre.replace(/_/g, ' ')}` : null}
+            caption={current ? `Simulación, tick ${current.tick}: ${current.nombre.replace(/_/g, ' ')}` : null}
           />
         </section>
 
@@ -223,7 +272,7 @@ export const TwinApp = () => {
           <section className={`${card} p-4 flex items-center gap-3`}>
             <RobotMascot size={64} mood={twin.globalAlerts.count ? 'alert' : 'ok'} />
             <div className="text-sm">
-              <p className="font-semibold">RX-1 en {ROOM_NAMES[room]}</p>
+              <p className="font-semibold">{current ? 'Simulación: ' : ''}RX-1 en {ROOM_NAMES[room]}</p>
               <p className="text-[var(--os-mute)]">
                 {proc ? `${proc.name.replace(/_/g, ' ')} (PID ${proc.pid})` : 'Sin proceso en ejecución'}
               </p>
