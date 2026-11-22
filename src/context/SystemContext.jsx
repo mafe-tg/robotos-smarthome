@@ -473,28 +473,136 @@ export const SystemProvider = ({ children }) => {
 
   const activeAlertsCount = alerts.filter((a) => a.state === 'Activa').length;
 
-  // Telemetría del sistema vinculada al estado de memoria de Dana, VFS y EnergyMonitor
-  // CPU: carga base del sistema (14 %) más la CPU de cada proceso en RUNNING.
-  // Con los procesos iniciales da 28 %; abrir apps o ejecutar procesos la sube.
+  // Telemetría del sistema vinculada al estado de memoria de Dana, VFS, dispositivos y EnergyMonitor
+  // Consumo dinámico de energía, CPU y almacenamiento VFS según el estado de cada dispositivo
+  const deviceImpact = useMemo(() => {
+    let deviceWatts = 0;
+    let deviceCpu = 0;
+    let deviceStorageBytes = 0;
+
+    for (const d of devices) {
+      if (d.type === 'light') {
+        if (d.status === 'ON') {
+          deviceWatts += 25; // 25W por lámpara encendida
+          deviceCpu += 2.5;  // I/O de iluminación
+          deviceStorageBytes += 60_000;
+        }
+      } else if (d.type === 'camera') {
+        if (d.status === 'ONLINE') {
+          deviceWatts += 45; // 45W cámara con video stream
+          deviceCpu += 11;   // Procesamiento de imagen y encoding
+          deviceStorageBytes += 650_000; // Buffer de clips en VFS
+        } else {
+          deviceWatts += 2;
+        }
+      } else if (d.type === 'motion') {
+        if (d.status === 'DETECTADO') {
+          deviceWatts += 18; // Sensor activo con RF
+          deviceCpu += 7;    // Interrupción de evento
+          deviceStorageBytes += 180_000; // Registro en VFS
+        } else {
+          deviceWatts += 2;
+        }
+      } else if (d.type === 'climate') {
+        const temp = Number(d.temperature) || 20;
+        const active = temp >= 21.5 || temp <= 19;
+        deviceWatts += active ? 140 : 25; // Compresor HVAC
+        deviceCpu += active ? 5 : 2;
+        deviceStorageBytes += 80_000;
+      } else if (d.type === 'lock') {
+        if (d.status === 'DESBLOQUEADA') {
+          deviceWatts += 15;
+          deviceCpu += 3;
+        } else {
+          deviceWatts += 3;
+        }
+        deviceStorageBytes += 40_000;
+      } else {
+        // Otros sensores periféricos (humedad, etc.)
+        deviceWatts += 5;
+        deviceCpu += 1;
+        deviceStorageBytes += 30_000;
+      }
+    }
+
+    return { deviceWatts, deviceCpu, deviceStorageBytes };
+  }, [devices]);
+
+  // CPU: carga base del robot (12 %) + procesos en RUNNING + carga I/O de dispositivos
   const runningCpu = processes
     .filter((p) => p.state === ESTADOS.RUNNING)
     .reduce((sum, p) => sum + (Number(p.cpu) || 0), 0);
+
+  const totalCpuUsage = cpuUsageOverride !== null
+    ? cpuUsageOverride
+    : Math.min(100, Math.round(12 + runningCpu + deviceImpact.deviceCpu));
+
+  // Potencia en Watts: base del robot (45W) + dispositivos activos + carga de CPU (0.5W por %)
+  const totalPowerWatts = Math.round(45 + deviceImpact.deviceWatts + (totalCpuUsage * 0.5));
+
+  // Almacenamiento VFS dinámico: base de partición raíz + telemetría y buffers de dispositivos activos
+  const dynamicVfsUsedBytes = Math.min(
+    vfsStats.capacityBytes * 0.95,
+    (vfsStats.usedBytes || 3_800_000) + deviceImpact.deviceStorageBytes
+  );
+
   const metrics = {
-    cpuUsage: cpuUsageOverride !== null ? cpuUsageOverride : Math.min(100, Math.round(14 + runningCpu)),
+    cpuUsage: totalCpuUsage,
     ramUsageKB: memoryStats.usedKb,
     ramTotalKB: memoryStats.totalKb,
     ramUsageMB: Math.round((memoryStats.usedKb / 1024) * 10) / 10,
     ramTotalMB: 1,
-    storageUsageBytes: vfsStats.usedBytes,
+    storageUsageBytes: dynamicVfsUsedBytes,
     storageCapacityBytes: vfsStats.capacityBytes,
-    storageUsageMB: +(vfsStats.usedBytes / 1_000_000).toFixed(2),
+    storageUsageMB: +(dynamicVfsUsedBytes / 1_000_000).toFixed(2),
     storageTotalMB: +(vfsStats.capacityBytes / 1_000_000).toFixed(1),
     batteryPercent: 84,
-    powerDrawWatts: 115,
+    powerDrawWatts: totalPowerWatts,
     energyKwh: energyReport.totalKwh,
     energyCosto: energyReport.costoEstimado,
     robotStatus: activeAlertsCount > 0 ? 'EN ALERTA' : 'OPERATIVO',
   };
+
+  // Historial continuo de telemetría de 60 segundos (CPU, RAM y Potencia) para el Monitor y gráficos
+  const [telemetryHistory, setTelemetryHistory] = useState(() => {
+    const pts = [];
+    const baseC = totalCpuUsage || 48;
+    const baseR = memoryStats.totalKb ? Math.round((memoryStats.usedKb / memoryStats.totalKb) * 100) : 78;
+    for (let i = 59; i >= 0; i--) {
+      const varC = Math.round(Math.sin(i / 2) * 2);
+      pts.push({
+        t: 59 - i,
+        cpu: Math.max(5, Math.min(100, baseC + varC)),
+        ram: baseR,
+        power: Math.round(45 + baseC * 0.5),
+      });
+    }
+    return pts;
+  });
+
+  const latestMetricsRef = useRef({ cpu: totalCpuUsage, ramKb: memoryStats.usedKb, power: totalPowerWatts });
+  latestMetricsRef.current = { cpu: totalCpuUsage, ramKb: memoryStats.usedKb, power: totalPowerWatts };
+
+  useEffect(() => {
+    const sample = () => {
+      const cur = latestMetricsRef.current;
+      const ramPct = memoryStats.totalKb
+        ? Math.round((cur.ramKb / memoryStats.totalKb) * 100)
+        : 78;
+      setTelemetryHistory((prev) => [
+        ...prev.slice(-59),
+        {
+          cpu: cur.cpu,
+          ram: ramPct,
+          power: cur.power,
+        },
+      ].map((d, i) => ({ ...d, t: i })));
+    };
+
+    sample();
+    const timer = setInterval(sample, 1000);
+    return () => clearInterval(timer);
+  }, [totalCpuUsage, memoryStats.usedKb, totalPowerWatts, memoryStats.totalKb]);
 
   const getNowTimestamp = () => {
     const d = new Date();
@@ -721,20 +829,21 @@ export const SystemProvider = ({ children }) => {
   };
 
   /**
-   * Reanudar: WAITING -> READY
+   * Reanudar: WAITING -> RUNNING
+   * Al reanudarse, el proceso vuelve de inmediato a ejecución (RUNNING) sin quedarse estancado en lista.
    */
   const resumeProcess = (processId) => {
     const target = processes.find((p) => p.id === processId);
     if (!target || target.state !== ESTADOS.WAITING) return;
 
     setProcesses((prev) =>
-      prev.map((p) => (p.id === processId ? { ...p, state: ESTADOS.READY } : p))
+      prev.map((p) => (p.id === processId ? { ...p, state: ESTADOS.RUNNING } : p))
     );
 
     addLog({
       level: 'INFO',
       source: 'SCHEDULER',
-      message: `Proceso PID ${target.pid} (${target.name}) reanudado [WAITING] -> [READY].`,
+      message: `Proceso PID ${target.pid} (${target.name}) reanudado y en ejecución [WAITING] -> [RUNNING].`,
     });
   };
 
@@ -1220,6 +1329,7 @@ export const SystemProvider = ({ children }) => {
     <SystemContext.Provider
       value={{
         metrics,
+        telemetryHistory,
         processes,
         memoryBlocks,
         memoryStats,
