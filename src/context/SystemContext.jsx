@@ -484,13 +484,13 @@ export const SystemProvider = ({ children }) => {
       if (d.type === 'light') {
         if (d.status === 'ON') {
           deviceWatts += 25; // 25W por lámpara encendida
-          deviceCpu += 2.5;  // I/O de iluminación
+          deviceCpu += 5;    // I/O activo de iluminación
           deviceStorageBytes += 60_000;
         }
       } else if (d.type === 'camera') {
         if (d.status === 'ONLINE') {
           deviceWatts += 45; // 45W cámara con video stream
-          deviceCpu += 11;   // Procesamiento de imagen y encoding
+          deviceCpu += 14;   // Procesamiento de imagen y encoding
           deviceStorageBytes += 650_000; // Buffer de clips en VFS
         } else {
           deviceWatts += 2;
@@ -507,7 +507,7 @@ export const SystemProvider = ({ children }) => {
         const temp = Number(d.temperature) || 20;
         const active = temp >= 21.5 || temp <= 19;
         deviceWatts += active ? 140 : 25; // Compresor HVAC
-        deviceCpu += active ? 5 : 2;
+        deviceCpu += active ? 6 : 1;
         deviceStorageBytes += 80_000;
       } else if (d.type === 'lock') {
         if (d.status === 'DESBLOQUEADA') {
@@ -528,14 +528,15 @@ export const SystemProvider = ({ children }) => {
     return { deviceWatts, deviceCpu, deviceStorageBytes };
   }, [devices]);
 
-  // CPU: carga base del robot (12 %) + procesos en RUNNING + carga I/O de dispositivos
+  // CPU: carga base del robot en reposo (6 %) + procesos en RUNNING + carga I/O de dispositivos
   const runningCpu = processes
     .filter((p) => p.state === ESTADOS.RUNNING)
     .reduce((sum, p) => sum + (Number(p.cpu) || 0), 0);
 
+  // Al apagar dispositivos y en reposo cae limpiamente, subiendo cuando hay actividad
   const totalCpuUsage = cpuUsageOverride !== null
     ? cpuUsageOverride
-    : Math.min(100, Math.round(12 + runningCpu + deviceImpact.deviceCpu));
+    : Math.min(100, Math.round(6 + (runningCpu * 0.45) + deviceImpact.deviceCpu));
 
   // Potencia en Watts: base del robot (45W) + dispositivos activos + carga de CPU (0.5W por %)
   const totalPowerWatts = Math.round(45 + deviceImpact.deviceWatts + (totalCpuUsage * 0.5));

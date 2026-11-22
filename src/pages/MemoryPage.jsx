@@ -278,14 +278,6 @@ export const MemoryPage = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleCompact}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs tracking-wide shadow-lg shadow-cyan-600/30 transition-all flex items-center space-x-2 cursor-pointer"
-            title="Compactar memoria RAM: reubica bloques al inicio eliminando la fragmentación externa"
-          >
-            <span>🗜️ Compactar Memoria</span>
-            {role !== 'ADMIN' && <span className="text-[10px] text-cyan-200">(Solo ADMIN)</span>}
-          </button>
           <div className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono text-cyan-400">
             Rol: <span className="font-bold">{role}</span>
           </div>
@@ -348,7 +340,7 @@ export const MemoryPage = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-800/80 pb-3">
           <div>
             <h3 className="text-sm font-bold text-white tracking-wide">
-              Mapa Físico de Memoria RAM (Espacio de Direcciones 0 a 1024 KB)
+              Mapa Físico de Memoria (Espacio de Direcciones 0 a 1024 KB)
             </h3>
             <p className="text-xs text-slate-400">
               Visualización proporcional de particiones contiguas y huecos libres en tiempo real.

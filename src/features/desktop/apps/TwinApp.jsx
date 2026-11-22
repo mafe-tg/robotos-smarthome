@@ -308,21 +308,6 @@ export const TwinApp = () => {
               )}
             </section>
           )}
-
-          <section className={`${card} p-4`}>
-            <h3 className="text-sm font-semibold mb-2">Causa y efecto</h3>
-            <ul className="space-y-1.5 text-sm">
-              {effects.map((d) => (
-                <li key={d.id} className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: d.dotColor }} />
-                  <span className="truncate">{d.name}</span>
-                  <span className="ml-auto shrink-0 text-xs text-[var(--os-mute)]">
-                    {!isGuest && d.responsibleProcess ? `por ${d.responsibleProcess.replace(/_/g, ' ')}` : d.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
         </aside>
       </div>
     </div>

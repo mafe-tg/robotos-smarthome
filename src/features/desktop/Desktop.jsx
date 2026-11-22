@@ -192,7 +192,7 @@ export const Desktop = () => {
           h,
           z: zRef.current,
           minimized: false,
-          maximized: false,
+          maximized: true,
           pendingRun: true,
         };
         setWindows((prev) => [...prev, win]);

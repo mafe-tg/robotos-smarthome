@@ -239,15 +239,13 @@ export class HardwareManager {
       }
     }
 
-    // Seguridad: obstáculo muy cerca o motores calientes detienen las ruedas
+    // Seguridad: obstáculo muy cerca o motores calientes detienen el desplazamiento automático
     if (lidar.value !== null && lidar.value < 20 && load > 0) {
-      this.actuators.get('rueda_izq').value = 0;
-      this.actuators.get('rueda_der').value = 0;
       this.moveTicks = 0;
       this.emit('OBSTACLE_STOP', { distance: lidar.value });
     }
     if (temp.value !== null && temp.value > 85) {
-      this.stopAll();
+      this.moveTicks = 0;
       this.emit('THERMAL_STOP', { temperature: temp.value });
     }
 

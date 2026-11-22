@@ -77,21 +77,21 @@ export function diagnose(s) {
   const mem = s.memoryStats || {};
   const usage = mem.totalKb ? (mem.usedKb / mem.totalKb) * 100 : 0;
   const holes = countMemoryHoles(s.memoryBlocks, mem.totalKb);
-  if (usage >= 90) {
+  if (usage >= 96) {
     add({
       id: 'ram-full',
       severity: SEVERITY.CRITICAL,
       area: 'Memoria',
-      title: `La RAM está casi llena (${Math.round(usage)} %)`,
+      title: `La memoria está casi llena (${Math.round(usage)} %)`,
       detail: `Quedan ${mem.freeKb} KB. Un proceso nuevo puede no tener dónde cargarse. Cierra apps que no uses.`,
       action: { type: 'open_app', label: 'Ver procesos en el monitor', payload: 'monitor' },
     });
-  } else if (usage >= 80) {
+  } else if (usage >= 91) {
     add({
       id: 'ram-high',
       severity: SEVERITY.WARNING,
       area: 'Memoria',
-      title: `Uso de RAM alto (${Math.round(usage)} %)`,
+      title: `Uso de memoria alto (${Math.round(usage)} %)`,
       detail: `Quedan ${mem.freeKb} KB libres.`,
       action: { type: 'open_app', label: 'Ver procesos en el monitor', payload: 'monitor' },
     });

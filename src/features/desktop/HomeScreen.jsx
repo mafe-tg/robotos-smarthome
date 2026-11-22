@@ -84,7 +84,7 @@ export function useTwinSnapshot() {
 }
 
 /** Encender o apagar un dispositivo respetando los permisos del perfil. */
-function useDeviceToggle() {
+function useDeviceToggle(onToggle) {
   const { toggleDevice, addLog } = useSystem();
   const { role, checkPermission } = useAuth();
   return (d) => {
@@ -96,6 +96,8 @@ function useDeviceToggle() {
     }
     sfx.move();
     toggleDevice(d.id);
+    const targetRoom = DEVICE_ROOM[d.id] || 'base';
+    onToggle?.(targetRoom);
   };
 }
 
@@ -109,9 +111,9 @@ const greeting = (date) => {
 const ROLE_NAME = { ADMIN: 'Administrador', USER: 'Residente', GUEST: 'Invitado' };
 
 /* ── Plano de la casa ── */
-export const HousePlan = ({ twin, selectedRoom, onSelectRoom, robotRoom = null, transitionMs = 1400, caption = null }) => {
+export const HousePlan = ({ twin, selectedRoom, onSelectRoom, robotRoom = null, transitionMs = 1400, caption = null, onDeviceToggled }) => {
   const { devices } = useSystem();
-  const toggle = useDeviceToggle();
+  const toggle = useDeviceToggle(onDeviceToggled);
   const room = robotRoom || twin.robot.currentRoom || 'base';
   const spot = ROBOT_SPOT[room] || ROBOT_SPOT.base;
   const alarm = twin.globalAlerts.count > 0;
@@ -243,11 +245,9 @@ export const HousePlan = ({ twin, selectedRoom, onSelectRoom, robotRoom = null, 
         <span
           className={`absolute inset-0 -m-3 rounded-full blur-md ${alarm ? 'bg-[var(--os-alert)]/60' : 'bg-[var(--os-signal)]/50'}`}
         />
-        {caption && (
-          <span className="absolute left-1/2 -translate-x-1/2 -top-8 px-2.5 py-1 rounded-full bg-white text-[#2a17a8] text-[11px] font-semibold whitespace-nowrap shadow-lg">
-            {caption}
-          </span>
-        )}
+        <span className="absolute left-1/2 -translate-x-1/2 -top-8 px-2.5 py-1 rounded-full bg-white text-[#2a17a8] text-[11px] font-semibold whitespace-nowrap shadow-lg">
+          {caption || `RX-1 en ${ROOM_NAMES[room] || room}`}
+        </span>
         <RobotMascot size={56} bob={false} mood={alarm ? 'alert' : 'ok'} className="relative w-9 h-10 sm:w-14 sm:h-[62px]" />
       </div>
     </div>
@@ -404,17 +404,17 @@ const Summary = () => {
   if (role !== 'GUEST') items.push({ icon: Cpu, label: 'Sistema', value: `CPU ${metrics.cpuUsage} %, ${online}/${devices.length} equipos` });
 
   return (
-    <ul className="flex flex-wrap gap-2" aria-label="Resumen de la casa">
+    <ul className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2" aria-label="Resumen de la casa">
       {items.map((it) => {
         const Icon = it.icon;
         return (
-          <li key={it.label} className="flex items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-white border border-[var(--os-line)] shadow-[0_4px_14px_rgba(60,40,160,0.06)]">
-            <span className={`w-8 h-8 rounded-full grid place-items-center ${it.warn ? 'bg-[var(--os-alert)] text-white' : 'bg-[var(--os-panel-2)] text-[var(--os-signal)]'}`}>
+          <li key={it.label} className="h-14 flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-white border border-[var(--os-line)] shadow-[0_4px_14px_rgba(60,40,160,0.06)] overflow-hidden">
+            <span className={`w-8 h-8 shrink-0 rounded-full grid place-items-center ${it.warn ? 'bg-[var(--os-alert)] text-white' : 'bg-[var(--os-panel-2)] text-[var(--os-signal)]'}`}>
               <Icon className="w-4 h-4" />
             </span>
-            <span className="leading-tight">
-              <span className="block text-[11px] text-[var(--os-mute)]">{it.label}</span>
-              <span className="block text-sm font-semibold">{it.value}</span>
+            <span className="leading-tight truncate">
+              <span className="block text-[11px] text-[var(--os-mute)] truncate">{it.label}</span>
+              <span className="block text-sm font-semibold truncate">{it.value}</span>
             </span>
           </li>
         );
@@ -427,7 +427,10 @@ export const HomeScreen = () => {
   const { role } = useAuth();
   const twin = useTwinSnapshot();
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [robotTargetRoom, setRobotTargetRoom] = useState(null);
   const [now, setNow] = useState(new Date());
+
+  const activeRobotRoom = robotTargetRoom || twin.robot.currentRoom || 'base';
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000);
@@ -448,16 +451,28 @@ export const HomeScreen = () => {
           </header>
           <Summary />
           <div className="rounded-[32px] p-3 sm:p-4 bg-[var(--os-panel-2)] border border-[var(--os-line)] shadow-[0_30px_80px_rgba(60,40,160,0.12)]">
-            <HousePlan twin={twin} selectedRoom={selectedRoom} onSelectRoom={setSelectedRoom} />
+            <HousePlan
+              twin={twin}
+              selectedRoom={selectedRoom}
+              onSelectRoom={(r) => {
+                setSelectedRoom(r);
+                setRobotTargetRoom(r);
+              }}
+              robotRoom={activeRobotRoom}
+              onDeviceToggled={(r) => {
+                setRobotTargetRoom(r);
+                setSelectedRoom(r);
+              }}
+            />
           </div>
         </div>
 
         <aside className="space-y-5 lg:pt-24">
           <Assistant twin={twin} onSelectRoom={setSelectedRoom} />
           <RoomPanel
-            key={selectedRoom || 'robot'}
+            key={selectedRoom || activeRobotRoom}
             twin={twin}
-            roomId={selectedRoom || twin.robot.currentRoom || 'base'}
+            roomId={selectedRoom || activeRobotRoom}
             onClose={selectedRoom ? () => setSelectedRoom(null) : null}
           />
         </aside>

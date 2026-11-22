@@ -390,7 +390,7 @@ export const KernelPage = ({ onNavigate }) => {
                 </span>
               </h1>
               <p className="text-xs text-slate-400">
-                Subsistema de Bajo Nivel · Sofia (Integrante 1)
+                Subsistema de Gestión de Recursos y Núcleo
               </p>
             </div>
           </div>
@@ -790,7 +790,7 @@ export const KernelPage = ({ onNavigate }) => {
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                   <div className="flex items-center space-x-2">
                     <TerminalIcon className="w-4 h-4 text-cyan-400" />
-                    <h2 className="text-sm font-bold text-white">Stream de Eventos (EventEngine)</h2>
+                    <h2 className="text-sm font-bold text-white">Historial de Actividad en Vivo (EventEngine)</h2>
                   </div>
                   <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
                     LIVE
@@ -912,8 +912,11 @@ export const KernelPage = ({ onNavigate }) => {
 
               {/* CARD DE CONCLUSIÓN */}
               <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-1">
-                <div className="font-bold text-cyan-400">💡 Análisis para la Sustentación:</div>
-                <p className="text-[11px] text-slate-400">{benchmarkSuite.cpu.resumen.conclusion}</p>
+                <div className="font-bold text-cyan-400">💡 ¿Cómo entenderlo de forma sencilla?</div>
+                <p className="text-[11px] text-slate-300">
+                  Compara qué método organiza mejor el trabajo: <strong className="text-purple-300">Prioridad</strong> atiende primero lo más urgente (como alarmas o cerraduras), mientras que <strong className="text-cyan-300">Round Robin</strong> es democrático y reparte turnos iguales de tiempo a cada proceso.
+                </p>
+                <p className="text-[11px] text-slate-400 mt-1">{benchmarkSuite.cpu.resumen.conclusion}</p>
               </div>
             </div>
           )}
@@ -965,9 +968,12 @@ export const KernelPage = ({ onNavigate }) => {
               <div className="p-4 rounded-xl bg-gradient-to-r from-amber-950/30 to-purple-950/30 border border-amber-600/40 space-y-2">
                 <div className="flex items-center space-x-2 text-amber-300 text-xs font-bold">
                   <Flame className="w-4 h-4 text-amber-400" />
-                  <span>Demostración de la Anomalía de Belády (Punto Clave Rúbrica)</span>
+                  <span>Demostración de la Anomalía de Belády (Curiosidad de Sistemas Operativos)</span>
                 </div>
                 <p className="text-[11px] text-slate-300">
+                  <strong className="text-cyan-300">¿Qué significa?</strong> Normalmente más memoria RAM reduce errores, pero con el método FIFO pasa lo contrario: al darle más memoria (de 3 a 4 marcos), ¡los fallos suben de 9 a 10! En cambio, con LRU los fallos bajan a 8.
+                </p>
+                <p className="text-[11px] text-slate-400">
                   Secuencia evaluada: <span className="font-mono text-cyan-300">[1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5]</span>
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-1 text-center font-mono text-xs">
