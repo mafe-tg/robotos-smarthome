@@ -389,7 +389,7 @@ export const KernelPage = ({ onNavigate }) => {
                 </span>
               </h1>
               <p className="text-xs text-slate-400">
-                Subsistema de Bajo Nivel · 
+                Subsistema de Bajo Nivel · Gestión de Recursos y Núcleo
               </p>
             </div>
           </div>

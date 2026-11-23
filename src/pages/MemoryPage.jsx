@@ -42,6 +42,7 @@ export const MemoryPage = () => {
   const {
     memoryBlocks,
     memoryStats,
+    compactMemory,
     freeMemoryBlock,
     vfsStats,
     vfsFiles,
@@ -55,6 +56,7 @@ export const MemoryPage = () => {
 
   const [activeFolderTab, setActiveFolderTab] = useState('ALL');
   const [selectedFile, setSelectedFile] = useState(null);
+  const [compactFeedback, setCompactFeedback] = useState(null);
 
   // Estados para CRUD de Archivos en VFS
   const [isCreating, setIsCreating] = useState(false);
@@ -93,6 +95,28 @@ export const MemoryPage = () => {
     });
     return Array.from(folders).sort();
   }, [vfsFiles]);
+
+  // Acción de compactar con comprobación de huecos
+  const handleCompact = () => {
+    if (!checkPermission('ADMIN', 'Compactación de memoria RAM física (compact)', addLog)) {
+      return;
+    }
+
+    const res = compactMemory();
+    if (res?.alreadyCompact) {
+      setCompactFeedback({
+        type: 'info',
+        message: res.message || 'No hay fragmentación, la memoria ya está compacta.',
+      });
+    } else if (res?.success) {
+      setCompactFeedback({
+        type: 'success',
+        message: res.message || 'Memoria compactada con éxito: fragmentación eliminada.',
+      });
+    }
+
+    setTimeout(() => setCompactFeedback(null), 4000);
+  };
 
   // Liberar bloque manualmente (exclusivo ADMIN)
   const handleFreeBlock = (block) => {
@@ -254,11 +278,41 @@ export const MemoryPage = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleCompact}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs tracking-wide shadow-lg shadow-cyan-600/30 transition-all flex items-center space-x-2 cursor-pointer"
+            title="Compactar memoria RAM: reubica bloques al inicio eliminando la fragmentación externa"
+          >
+            <span>🗜️ Compactar Memoria</span>
+            {role !== 'ADMIN' && <span className="text-[10px] text-cyan-200">(Solo ADMIN)</span>}
+          </button>
           <div className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono text-cyan-400">
             Rol: <span className="font-bold">{role}</span>
           </div>
         </div>
       </div>
+
+      {/* Banner de Aviso de Compactación si no hay huecos o éxito */}
+      {compactFeedback && (
+        <div
+          className={`p-3.5 rounded-xl text-xs font-mono flex items-center justify-between border transition-all ${
+            compactFeedback.type === 'info'
+              ? 'bg-amber-950/40 border-amber-500/50 text-amber-200'
+              : 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200'
+          }`}
+        >
+          <div className="flex items-center space-x-2">
+            <span>{compactFeedback.type === 'info' ? 'ℹ️' : '✅'}</span>
+            <span className="font-semibold">{compactFeedback.message}</span>
+          </div>
+          <button
+            onClick={() => setCompactFeedback(null)}
+            className="text-slate-400 hover:text-white text-xs font-bold px-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Tarjetas de Métricas de Memoria */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

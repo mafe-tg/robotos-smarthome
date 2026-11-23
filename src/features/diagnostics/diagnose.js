@@ -96,6 +96,27 @@ export function diagnose(s) {
       action: { type: 'open_app', label: 'Ver procesos en el monitor', payload: 'monitor' },
     });
   }
+  if (holes > 2) {
+    add({
+      id: 'fragmentation',
+      severity: SEVERITY.WARNING,
+      area: 'Memoria',
+      title: `Memoria fragmentada en ${holes} huecos`,
+      detail: 'Hay espacio libre, pero repartido en partes pequeñas. Compactar une los huecos.',
+      action: { type: 'compact', label: 'Compactar memoria' },
+    });
+  }
+  const corrupted = (s.memoryBlocks || []).filter((b) => b.corrupted);
+  if (corrupted.length) {
+    add({
+      id: 'corruption',
+      severity: SEVERITY.CRITICAL,
+      area: 'Memoria',
+      title: `${corrupted.length} bloque${corrupted.length > 1 ? 's' : ''} de memoria corrupto${corrupted.length > 1 ? 's' : ''}`,
+      detail: `Afecta a: ${corrupted.map((b) => b.owner).join(', ')}. Compactar reubica los bloques sanos.`,
+      action: { type: 'compact', label: 'Compactar memoria' },
+    });
+  }
 
   // CPU
   if (s.cpuUsage >= 85) {

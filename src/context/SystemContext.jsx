@@ -160,6 +160,11 @@ export const SystemProvider = ({ children }) => {
   const [devices, setDevices] = useState(INITIAL_DEVICES);
   // Última zona atendida: mantiene sincronizados el robot, el plano y su panel de ubicación.
   const [robotTargetRoom, setRobotTargetRoom] = useState(null);
+  const targetRoomTimeoutRef = useRef(null);
+
+  useEffect(() => () => {
+    if (targetRoomTimeoutRef.current) clearTimeout(targetRoomTimeoutRef.current);
+  }, []);
 
   // La batería solo aumenta mientras RX-1 está en la base y el usuario inicia la carga.
   useEffect(() => {
@@ -912,6 +917,58 @@ export const SystemProvider = ({ children }) => {
   };
 
   /**
+   * Compactar memoria RAM usando MemoryManager.compact()
+   * Si no hay huecos, no ejecuta compactación y retorna aviso.
+   */
+  const compactMemory = () => {
+    const mm = memoryManagerRef.current;
+    if (!mm) return { success: false, alreadyCompact: true, message: 'Administrador de memoria no disponible' };
+
+    // 1. Detectar si existe fragmentación (huecos entre bloques o antes del primer bloque)
+    const sorted = [...mm.blocks].sort((a, b) => a.start - b.start);
+    let cursor = 0;
+    let hasHoles = false;
+
+    for (const b of sorted) {
+      if (b.start > cursor) {
+        hasHoles = true;
+        break;
+      }
+      cursor = b.start + b.size;
+    }
+
+    if (!hasHoles) {
+      addLog({
+        level: 'INFO',
+        source: 'MEM_MANAGER',
+        message: 'Verificación de memoria RAM: No hay fragmentación, la memoria ya está compacta.',
+      });
+      return {
+        success: false,
+        alreadyCompact: true,
+        message: 'No hay fragmentación, la memoria ya está compacta.',
+      };
+    }
+
+    // 2. Si hay huecos, compactar con la clase oficial de Dana
+    mm.compact();
+    setMemoryBlocks([...mm.blocks]);
+    setMemoryStats(mm.stats());
+
+    addLog({
+      level: 'INFO',
+      source: 'MEM_MANAGER',
+      message: `Memoria RAM compactada: bloques reubicados de forma contigua en memoria principal (0 a ${mm.stats().usedKb} KB). Fragmentación externa eliminada.`,
+    });
+
+    return {
+      success: true,
+      alreadyCompact: false,
+      message: `Memoria RAM compactada: bloques contiguos de 0 a ${mm.stats().usedKb} KB. Fragmentación eliminada.`,
+    };
+  };
+
+  /**
    * Liberar bloque de memoria manualmente (free)
    */
   const freeMemoryBlock = (owner) => {
@@ -1142,6 +1199,10 @@ export const SystemProvider = ({ children }) => {
 
     const deviceRooms = { d1: 'salon', d2: 'cocina', d3: 'entrada', d4: 'exterior', d5: 'entrada', d6: 'salon' };
     setRobotTargetRoom(deviceRooms[id] || 'base');
+    if (targetRoomTimeoutRef.current) clearTimeout(targetRoomTimeoutRef.current);
+    targetRoomTimeoutRef.current = setTimeout(() => {
+      setRobotTargetRoom(null);
+    }, 4000);
 
     let nextStatus = target.status;
     let nextTemp = target.temperature;
@@ -1176,7 +1237,8 @@ export const SystemProvider = ({ children }) => {
     );
 
     // El proceso asociado refleja el trabajo real del dispositivo: al apagarlo
-    // deja de consumir CPU y queda en espera; al encenderlo vuelve a ejecutarse.
+    // pasa a espera (WAITING); al encenderlo vuelve a ejecutarse (RUNNING).
+    // No se tocan procesos que ya estén en TERMINATED.
     const processByDevice = {
       d1: 'lighting_daemon',
       d2: 'routine_engine',
@@ -1193,13 +1255,18 @@ export const SystemProvider = ({ children }) => {
         (target.type === 'motion' && nextStatus === 'DETECTADO') ||
         (target.type === 'lock' && nextStatus !== 'OFFLINE') ||
         target.type === 'climate';
-      setProcesses((prev) =>
-        prev.map((proc) =>
-          proc.name === processName
-            ? { ...proc, state: active ? ESTADOS.RUNNING : ESTADOS.WAITING }
-            : proc
-        )
-      );
+      const proc = processes.find((p) => p.name === processName);
+      if (proc && proc.state !== ESTADOS.TERMINATED) {
+        if (active) {
+          if (proc.state === ESTADOS.WAITING) {
+            resumeProcess(proc.id);
+          }
+        } else {
+          if (proc.state === ESTADOS.RUNNING || proc.state === ESTADOS.READY) {
+            pauseProcess(proc.id);
+          }
+        }
+      }
     }
 
     addLog({
@@ -1368,6 +1435,7 @@ export const SystemProvider = ({ children }) => {
         pauseProcess,
         resumeProcess,
         terminateProcess,
+        compactMemory,
         freeMemoryBlock,
         createVfsFile,
         updateVfsFile,
