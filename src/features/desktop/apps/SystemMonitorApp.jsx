@@ -173,7 +173,7 @@ const Chart = ({ data, dataKey, color, label, value }) => (
 );
 
 const PerformanceTab = () => {
-  const { metrics, memoryStats, memoryBlocks, compactMemory, addLog, processes, telemetryHistory } = useSystem();
+  const { metrics, memoryStats, memoryBlocks, addLog, processes, telemetryHistory } = useSystem();
   const { checkPermission } = useAuth();
   const { notify } = useDesktop();
   const { kernel } = getKernel();
@@ -193,11 +193,7 @@ const PerformanceTab = () => {
     return count;
   }, [memoryBlocks, memoryStats.totalKb]);
 
-  const compact = () => {
-    if (!checkPermission('ADMIN', 'Compactar la memoria RAM', addLog)) return;
-    const r = compactMemory();
-    notify(r?.alreadyCompact ? 'La memoria ya estaba compacta' : 'Memoria compactada', r?.message || '', r?.alreadyCompact ? 'info' : 'ok');
-  };
+
 
   return (
     <div className="p-4 space-y-4 overflow-auto h-full">
@@ -223,9 +219,6 @@ const PerformanceTab = () => {
             <dt className="text-[var(--os-mute)]">Libre</dt><dd>{memoryStats.freeKb} KB</dd>
             <dt className="text-[var(--os-mute)]">Huecos libres</dt><dd>{holes}</dd>
           </dl>
-          <button onClick={compact} className={`${btn} mt-4 bg-white/5 hover:bg-white/10`} title="Solo el administrador">
-            Compactar memoria
-          </button>
         </section>
       </div>
     </div>

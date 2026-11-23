@@ -6,7 +6,7 @@
  * - "Reproducir el planificador" ejecuta simular() de Sofia (Prioridad o Round
  *   Robin) sobre copias de los procesos activos y mueve a RX-1 tick a tick según
  *   el diagrama de Gantt. La velocidad depende de la CPU y de la batería.
- * - Muestra qué proceso controla cada dispositivo (causa y efecto).
+ * - Muestra qué proceso controla cada dispositivo ().
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Play, Square, Pause, Minus, Plus } from 'lucide-react';
@@ -160,7 +160,6 @@ export const TwinApp = () => {
   const proc = current ? { name: current.nombre, pid: current.pid } : twin.robot.runningProcess;
 
   const effects = (twin.deviceStates || []).filter((d) => !isGuest || GUEST_VISIBLE_DEVICES.has(d.id));
-  const rooms = Object.entries(twin.rooms || {}).filter(([, r]) => r.processes?.some((p) => p.state !== 'TERMINATED'));
 
   return (
     <div className="os-light min-h-full bg-[#f7f6ff] text-[var(--os-ink)] p-4 sm:p-5 space-y-4">
@@ -280,34 +279,7 @@ export const TwinApp = () => {
             </div>
           </section>
 
-          {!isGuest && (
-            <section className={`${card} p-4`}>
-              <h3 className="text-sm font-semibold mb-2">Procesos por habitación</h3>
-              {rooms.length === 0 ? (
-                <p className="text-sm text-[var(--os-mute)]">No hay procesos activos.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {rooms.map(([id, r]) => (
-                    <li key={id}>
-                      <p className="text-xs font-semibold text-[var(--os-mute)]">{ROOM_NAMES[id]}</p>
-                      <ul className="mt-1 flex flex-wrap gap-1.5">
-                        {r.processes
-                          .filter((p) => p.state !== 'TERMINATED')
-                          .map((p) => (
-                            <li key={p.id} className="px-2.5 py-0.5 rounded-full bg-[var(--os-panel-2)] text-xs">
-                              {p.name.replace(/_/g, ' ')}{' '}
-                              <span className={p.state === 'RUNNING' ? 'text-[var(--os-ok)]' : 'text-[var(--os-mute)]'}>
-                                {STATE_LABEL[p.state] || p.state}
-                              </span>
-                            </li>
-                          ))}
-                      </ul>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
+
         </aside>
       </div>
     </div>

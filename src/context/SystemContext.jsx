@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   INITIAL_PROCESSES,
   INITIAL_SUPABASE_MEMORY_BLOCKS,
@@ -72,6 +72,18 @@ const memorySignature = (blocks, withCorruption = true) =>
 const deviceStatuses = (list) => new Map(list.map((d) => [d.id, d.status]));
 
 export const SystemProvider = ({ children }) => {
+  const [batteryPercent, setBatteryPercent] = useState(84);
+  const [isCharging, setIsCharging] = useState(false);
+  // Enviar RX-1 a la base no inicia la carga automáticamente.
+  const chargeRobot = useCallback(() => {
+    setIsCharging(false);
+    setRobotTargetRoom('base');
+  }, []);
+  const startCharging = useCallback(() => {
+    setRobotTargetRoom((current) => current || 'base');
+    setIsCharging(true);
+  }, []);
+  const stopCharging = useCallback(() => setIsCharging(false), []);
   // Instancias de los módulos de Dana (mantienen el modelo operativo en memoria viva)
   const memoryManagerRef = useRef(null);
   const vfsRef = useRef(null);
@@ -146,6 +158,25 @@ export const SystemProvider = ({ children }) => {
 
   // 5. Dispositivos del hogar
   const [devices, setDevices] = useState(INITIAL_DEVICES);
+  // Última zona atendida: mantiene sincronizados el robot, el plano y su panel de ubicación.
+  const [robotTargetRoom, setRobotTargetRoom] = useState(null);
+
+  // La batería solo aumenta mientras RX-1 está en la base y el usuario inicia la carga.
+  useEffect(() => {
+    if (!isCharging) return undefined;
+    if (robotTargetRoom && robotTargetRoom !== 'base') {
+      setIsCharging(false);
+      return undefined;
+    }
+    const timer = setInterval(() => {
+      setBatteryPercent((current) => Math.min(100, current + 1));
+    }, 1500);
+    return () => clearInterval(timer);
+  }, [isCharging, robotTargetRoom]);
+
+  useEffect(() => {
+    if (batteryPercent >= 100 && isCharging) setIsCharging(false);
+  }, [batteryPercent, isCharging]);
 
   // 6. Logs y Alertas (incluye logs de la tabla Supabase)
   const [logs, setLogs] = useState(INITIAL_SUPABASE_LOGS);
@@ -377,7 +408,7 @@ export const SystemProvider = ({ children }) => {
     prevProcessesRef.current = processSignatures(processes);
   }, [processes]);
 
-  // Memoria: asignación, liberación, compactación y corrupción de bloques
+  // Memoria: asignación, liberación y detección de corrupción de bloques
   useEffect(() => {
     const signature = memorySignature(memoryBlocks);
     const previous = prevMemoryRef.current;
@@ -484,13 +515,13 @@ export const SystemProvider = ({ children }) => {
       if (d.type === 'light') {
         if (d.status === 'ON') {
           deviceWatts += 25; // 25W por lámpara encendida
-          deviceCpu += 5;    // I/O activo de iluminación
+          deviceCpu += 2.5;  // I/O de iluminación
           deviceStorageBytes += 60_000;
         }
       } else if (d.type === 'camera') {
         if (d.status === 'ONLINE') {
           deviceWatts += 45; // 45W cámara con video stream
-          deviceCpu += 14;   // Procesamiento de imagen y encoding
+          deviceCpu += 11;   // Procesamiento de imagen y encoding
           deviceStorageBytes += 650_000; // Buffer de clips en VFS
         } else {
           deviceWatts += 2;
@@ -507,7 +538,7 @@ export const SystemProvider = ({ children }) => {
         const temp = Number(d.temperature) || 20;
         const active = temp >= 21.5 || temp <= 19;
         deviceWatts += active ? 140 : 25; // Compresor HVAC
-        deviceCpu += active ? 6 : 1;
+        deviceCpu += active ? 5 : 2;
         deviceStorageBytes += 80_000;
       } else if (d.type === 'lock') {
         if (d.status === 'DESBLOQUEADA') {
@@ -528,15 +559,14 @@ export const SystemProvider = ({ children }) => {
     return { deviceWatts, deviceCpu, deviceStorageBytes };
   }, [devices]);
 
-  // CPU: carga base del robot en reposo (6 %) + procesos en RUNNING + carga I/O de dispositivos
+  // CPU: carga base del robot (12 %) + procesos en RUNNING + carga I/O de dispositivos
   const runningCpu = processes
     .filter((p) => p.state === ESTADOS.RUNNING)
     .reduce((sum, p) => sum + (Number(p.cpu) || 0), 0);
 
-  // Al apagar dispositivos y en reposo cae limpiamente, subiendo cuando hay actividad
   const totalCpuUsage = cpuUsageOverride !== null
     ? cpuUsageOverride
-    : Math.min(100, Math.round(6 + (runningCpu * 0.45) + deviceImpact.deviceCpu));
+    : Math.min(100, Math.round(5 + runningCpu + deviceImpact.deviceCpu));
 
   // Potencia en Watts: base del robot (45W) + dispositivos activos + carga de CPU (0.5W por %)
   const totalPowerWatts = Math.round(45 + deviceImpact.deviceWatts + (totalCpuUsage * 0.5));
@@ -557,7 +587,7 @@ export const SystemProvider = ({ children }) => {
     storageCapacityBytes: vfsStats.capacityBytes,
     storageUsageMB: +(dynamicVfsUsedBytes / 1_000_000).toFixed(2),
     storageTotalMB: +(vfsStats.capacityBytes / 1_000_000).toFixed(1),
-    batteryPercent: 84,
+    batteryPercent,
     powerDrawWatts: totalPowerWatts,
     energyKwh: energyReport.totalKwh,
     energyCosto: energyReport.costoEstimado,
@@ -567,7 +597,7 @@ export const SystemProvider = ({ children }) => {
   // Historial continuo de telemetría de 60 segundos (CPU, RAM y Potencia) para el Monitor y gráficos
   const [telemetryHistory, setTelemetryHistory] = useState(() => {
     const pts = [];
-    const baseC = totalCpuUsage || 48;
+    const baseC = totalCpuUsage || 5;
     const baseR = memoryStats.totalKb ? Math.round((memoryStats.usedKb / memoryStats.totalKb) * 100) : 78;
     for (let i = 59; i >= 0; i--) {
       const varC = Math.round(Math.sin(i / 2) * 2);
@@ -724,7 +754,7 @@ export const SystemProvider = ({ children }) => {
       addLog({
         level: 'ERROR',
         source: 'MEM_MANAGER',
-        message: `[MEMORIA INSUFICIENTE] Rechazada creación de "${cleanName}". Solicitados: ${reqKb} KB, Libre total: ${stats.freeKb} KB. ${stats.freeKb >= reqKb ? '(Fragmentación detectada: requiere compactación)' : ''}`,
+        message: `[MEMORIA INSUFICIENTE] Rechazada creación de "${cleanName}". Solicitados: ${reqKb} KB, Libre total: ${stats.freeKb} KB. ${stats.freeKb >= reqKb ? '(el espacio libre está distribuido en bloques pequeños)' : ''}`,
       });
 
       return { success: false, reason: 'MEM_INSUFFICIENT' };
@@ -879,58 +909,6 @@ export const SystemProvider = ({ children }) => {
       source: 'MEM_MANAGER',
       message: `Memoria liberada con free("${targetProcess.name}"): devueltos ${freedKb || targetProcess.memoryKb || 0} KB a la reserva disponible.`,
     });
-  };
-
-  /**
-   * Compactar memoria RAM usando MemoryManager.compact()
-   * Si no hay huecos, no ejecuta compactación y retorna aviso.
-   */
-  const compactMemory = () => {
-    const mm = memoryManagerRef.current;
-    if (!mm) return { success: false, alreadyCompact: true, message: 'Administrador de memoria no disponible' };
-
-    // 1. Detectar si existe fragmentación (huecos entre bloques o antes del primer bloque)
-    const sorted = [...mm.blocks].sort((a, b) => a.start - b.start);
-    let cursor = 0;
-    let hasHoles = false;
-
-    for (const b of sorted) {
-      if (b.start > cursor) {
-        hasHoles = true;
-        break;
-      }
-      cursor = b.start + b.size;
-    }
-
-    if (!hasHoles) {
-      addLog({
-        level: 'INFO',
-        source: 'MEM_MANAGER',
-        message: 'Verificación de memoria RAM: No hay fragmentación, la memoria ya está compacta.',
-      });
-      return {
-        success: false,
-        alreadyCompact: true,
-        message: 'No hay fragmentación, la memoria ya está compacta.',
-      };
-    }
-
-    // 2. Si hay huecos, compactar con la clase oficial de Dana
-    mm.compact();
-    setMemoryBlocks([...mm.blocks]);
-    setMemoryStats(mm.stats());
-
-    addLog({
-      level: 'INFO',
-      source: 'MEM_MANAGER',
-      message: `Memoria RAM compactada: bloques reubicados de forma contigua en memoria principal (0 a ${mm.stats().usedKb} KB). Fragmentación externa eliminada.`,
-    });
-
-    return {
-      success: true,
-      alreadyCompact: false,
-      message: `Memoria RAM compactada: bloques contiguos de 0 a ${mm.stats().usedKb} KB. Fragmentación eliminada.`,
-    };
   };
 
   /**
@@ -1162,6 +1140,9 @@ export const SystemProvider = ({ children }) => {
     const target = devices.find((d) => d.id === id);
     if (!target) return;
 
+    const deviceRooms = { d1: 'salon', d2: 'cocina', d3: 'entrada', d4: 'exterior', d5: 'entrada', d6: 'salon' };
+    setRobotTargetRoom(deviceRooms[id] || 'base');
+
     let nextStatus = target.status;
     let nextTemp = target.temperature;
 
@@ -1193,6 +1174,33 @@ export const SystemProvider = ({ children }) => {
           : d
       )
     );
+
+    // El proceso asociado refleja el trabajo real del dispositivo: al apagarlo
+    // deja de consumir CPU y queda en espera; al encenderlo vuelve a ejecutarse.
+    const processByDevice = {
+      d1: 'lighting_daemon',
+      d2: 'routine_engine',
+      d3: 'surveillance_proc',
+      d4: 'surveillance_proc',
+      d5: 'lock_guard',
+      d6: 'temp_manager',
+    };
+    const processName = processByDevice[id];
+    if (processName) {
+      const active =
+        (target.type === 'light' && nextStatus === 'ON') ||
+        (target.type === 'camera' && nextStatus === 'ONLINE') ||
+        (target.type === 'motion' && nextStatus === 'DETECTADO') ||
+        (target.type === 'lock' && nextStatus !== 'OFFLINE') ||
+        target.type === 'climate';
+      setProcesses((prev) =>
+        prev.map((proc) =>
+          proc.name === processName
+            ? { ...proc, state: active ? ESTADOS.RUNNING : ESTADOS.WAITING }
+            : proc
+        )
+      );
+    }
 
     addLog({
       level: 'INFO',
@@ -1330,6 +1338,10 @@ export const SystemProvider = ({ children }) => {
     <SystemContext.Provider
       value={{
         metrics,
+        chargeRobot,
+        startCharging,
+        stopCharging,
+        isCharging,
         telemetryHistory,
         processes,
         memoryBlocks,
@@ -1343,6 +1355,7 @@ export const SystemProvider = ({ children }) => {
         energyReport,
         energyMonitor: energyMonitorRef.current,
         devices,
+        robotTargetRoom,
         logs,
         alerts,
         activeAlertsCount,
@@ -1355,7 +1368,6 @@ export const SystemProvider = ({ children }) => {
         pauseProcess,
         resumeProcess,
         terminateProcess,
-        compactMemory,
         freeMemoryBlock,
         createVfsFile,
         updateVfsFile,

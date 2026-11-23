@@ -31,6 +31,7 @@ export const TwinPage = () => {
     energyReport,
     systemSettings,
     metrics,
+    chargeRobot,
     addLog,
   } = useSystem();
 
@@ -55,6 +56,14 @@ export const TwinPage = () => {
 
   // ── Estado del robot: posición actual en el plano ───────────────────────────
   const [robotRoom, setRobotRoom] = useState('base');
+  const previousRobotRoom = useRef('base');
+  useEffect(() => {
+    if (robotRoom === 'base' && previousRobotRoom.current !== 'base') {
+      chargeRobot();
+      addLog({ level: 'INFO', source: 'ROBOT_CHARGING', message: 'RX-1 llegó a la base de carga. La carga manual está disponible.' });
+    }
+    previousRobotRoom.current = robotRoom;
+  }, [robotRoom, chargeRobot, addLog]);
 
   // Cuando no hay reproducción activa, el robot sigue al proceso RUNNING
   const isPlayingRef = useRef(false);

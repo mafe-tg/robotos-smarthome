@@ -29,7 +29,7 @@ test('kernel apagado es crítico y propone reiniciar', () => {
   assert.equal(r.findings[0].action.type, 'reboot');
 });
 
-test('detecta fragmentación y propone compactar', () => {
+test('no ofrece compactar memoria como acción del diagnóstico', () => {
   const blocks = [
     { start: 0, size: 16, owner: 'a' },
     { start: 64, size: 16, owner: 'b' },
@@ -38,8 +38,16 @@ test('detecta fragmentación y propone compactar', () => {
   assert.equal(countMemoryHoles(blocks, 1024), 3);
   const r = diagnose({ ...healthy(), memoryBlocks: blocks });
   const f = r.findings.find((x) => x.id === 'fragmentation');
-  assert.ok(f);
-  assert.equal(f.action.type, 'compact');
+  assert.equal(f, undefined);
+  assert.ok(!r.findings.some((x) => x.action?.type === 'compact'));
+});
+
+test('un uso normal de memoria no se reporta como RAM llena', () => {
+  const r = diagnose({
+    ...healthy(),
+    memoryStats: { totalKb: 1024, usedKb: 800, freeKb: 224 },
+  });
+  assert.ok(!r.findings.some((f) => f.id === 'ram-full' || f.id === 'ram-high'));
 });
 
 test('un driver caído aparece como crítico con la acción de reiniciarlo', () => {

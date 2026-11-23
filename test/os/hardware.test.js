@@ -86,3 +86,19 @@ test('los eventos salen por el EventEngine del kernel con el formato común', ()
   assert.deepEqual(Object.keys(ev).sort(), ['detalle', 'fecha', 'origen', 'tipo']);
   assert.equal(ev.origen, 'HARDWARE_MGR');
 });
+
+
+test('un obstáculo pausa el movimiento sin reiniciar el valor del actuador', () => {
+  const hw = new HardwareManager({ random: () => 0.5 });
+  hw.setActuator('rueda_izq', 100);
+  hw.setActuator('rueda_der', 100);
+  for (let i = 0; i < 8; i += 1) hw.tick();
+  const blocked = hw.snapshot();
+  assert.equal(blocked.obstacleBlocked, true);
+  assert.equal(blocked.moving, false);
+  assert.equal(blocked.actuators.find((a) => a.id === 'rueda_der').value, 100);
+  hw.setActuator('rueda_izq', 40);
+  hw.setActuator('rueda_der', 40);
+  assert.equal(hw.snapshot().obstacleBlocked, false);
+  assert.equal(hw.snapshot().actuators.find((a) => a.id === 'rueda_der').value, 40);
+});

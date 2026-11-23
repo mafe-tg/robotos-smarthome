@@ -39,12 +39,6 @@ export function useDiagnosis() {
     const { addLog } = system;
     try {
       switch (action.type) {
-        case 'compact':
-          if (checkPermission('ADMIN', 'Compactar la memoria desde el diagnóstico', addLog)) {
-            const r = system.compactMemory();
-            desktop.notify?.('Memoria compactada', r?.message || '', 'ok');
-          }
-          break;
         case 'reboot':
           desktop.restart?.();
           break;

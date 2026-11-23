@@ -74,6 +74,7 @@ export class HardwareManager {
     this.sensors.get('camara').value = 30;
     this.ticks = 0;
     this.moveTicks = 0;
+    this.obstacleBlocked = false;
   }
 
   /** Avisar a la interfaz de cualquier cambio. Devuelve la función para dejar de escuchar. */
@@ -155,6 +156,8 @@ export class HardwareManager {
     if (!Number.isFinite(n)) throw new HardwareError('INVALID_VALUE', `Valor no válido para ${a.name}`);
     const prev = a.value;
     a.value = clamp(Math.round(n), a.min, a.max);
+    // Una nueva orden manual permite al usuario corregir la velocidad sin reiniciar el actuador.
+    this.obstacleBlocked = false;
     this.emit('ACTUATOR_SET', { actuator: id, name: a.name, from: prev, to: a.value, unit: a.unit });
     return { ...a };
   }
@@ -173,6 +176,7 @@ export class HardwareManager {
   stopAll() {
     for (const a of this.actuators.values()) if (a.id !== 'brazo') a.value = 0;
     this.moveTicks = 0;
+    this.obstacleBlocked = false;
     this.emit('ACTUATORS_STOPPED', {});
   }
 
@@ -239,13 +243,16 @@ export class HardwareManager {
       }
     }
 
-    // Seguridad: obstáculo muy cerca o motores calientes detienen el desplazamiento automático
-    if (lidar.value !== null && lidar.value < 20 && load > 0) {
+    // Seguridad: obstáculo muy cerca o motores calientes detienen las ruedas
+    if (lidar.value !== null && lidar.value < 20 && load >= 80 && !this.obstacleBlocked) {
+      // Se bloquea el desplazamiento por seguridad, pero se conserva el valor elegido
+      // en los controles para que la persona pueda bajarlo manualmente.
       this.moveTicks = 0;
-      this.emit('OBSTACLE_STOP', { distance: lidar.value });
+      this.obstacleBlocked = true;
+      this.emit('OBSTACLE_STOP', { distance: lidar.value, requestedSpeed: load });
     }
     if (temp.value !== null && temp.value > 85) {
-      this.moveTicks = 0;
+      this.stopAll();
       this.emit('THERMAL_STOP', { temperature: temp.value });
     }
 
@@ -271,7 +278,8 @@ export class HardwareManager {
       sensors,
       actuators,
       drivers,
-      moving: actuators.some((a) => (a.id === 'rueda_izq' || a.id === 'rueda_der') && a.value > 0),
+      moving: !this.obstacleBlocked && actuators.some((a) => (a.id === 'rueda_izq' || a.id === 'rueda_der') && a.value > 0),
+      obstacleBlocked: this.obstacleBlocked,
       ticks: this.ticks,
     };
   }

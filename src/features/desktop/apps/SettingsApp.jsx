@@ -41,7 +41,7 @@ const formatUptime = (ms) => {
 export const SettingsApp = () => {
   const [section, setSection] = useState('perfil');
   const { role, switchRole, checkPermission } = useAuth();
-  const { memoryStats, memoryBlocks, compactMemory, addLog, processes } = useSystem();
+  const { memoryStats, memoryBlocks, addLog, processes } = useSystem();
   const { restart, shutdown, prefs = {}, setPrefs, notify, windows = [] } = useDesktop();
   const bridge = getKernel();
   const snap = bridge.kernel.state.snapshot();
@@ -49,11 +49,7 @@ export const SettingsApp = () => {
   const ramPct = memoryStats.totalKb ? (memoryStats.usedKb / memoryStats.totalKb) * 100 : 0;
   const appKb = windows.length * APP_MEMORY_KB;
 
-  const compact = () => {
-    if (!checkPermission('ADMIN', 'Compactar la memoria RAM', addLog)) return;
-    const r = compactMemory();
-    notify?.(r?.alreadyCompact ? 'La memoria ya estaba compacta' : 'Memoria compactada', r?.message || '', r?.alreadyCompact ? 'info' : 'ok');
-  };
+
 
   return (
     <div className="h-full flex flex-col sm:flex-row os-light os-applight bg-[#f7f6ff] text-[var(--os-ink)]" style={{ fontFamily: 'var(--os-font)' }}>
@@ -153,11 +149,8 @@ export const SettingsApp = () => {
               </p>
             </div>
             <p className="text-sm text-[var(--os-mute)]">
-              Cada ventana reserva {APP_MEMORY_KB} KB. Si la RAM queda en huecos sueltos, compactarla los une para que quepan procesos nuevos.
+              Cada ventana reserva {APP_MEMORY_KB} KB para funcionar.
             </p>
-            <button onClick={compact} className={`${btn} bg-white/5 hover:bg-white/10`} title="Solo el administrador">
-              Compactar memoria
-            </button>
           </section>
         )}
 

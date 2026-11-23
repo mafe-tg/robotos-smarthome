@@ -111,7 +111,6 @@ function registerSyscalls(kernel, threads, hardware) {
     stats: { ...ctx().memoryStats },
     blocks: [...ctx().memoryBlocks].sort((a, b) => a.start - b.start),
   }));
-  sc.register('sys_compact', () => ctx().compactMemory());
 
   // ── Archivos ──
   sc.register('sys_ls', () => ctx().vfsFiles.map((f) => ({ ...f })));

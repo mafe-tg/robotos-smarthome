@@ -158,6 +158,11 @@ export const Desktop = () => {
       if (openingRef.current.has(appId)) return;
       openingRef.current.add(appId);
 
+      // Mantener una sola aplicación abierta evita acumular pestañas/ventanas en el Dock.
+      windowsRef.current.slice().forEach((win) => {
+        if (win.appId !== appId) closeWindow(win.wid);
+      });
+
       try {
         const result = await kernel.syscalls.invoke('sys_spawn', {
           name: appProcessName(app.id),
@@ -170,7 +175,7 @@ export const Desktop = () => {
           sfx.error();
           notify(
             `No hay memoria para abrir ${app.name}`,
-            'Cierra alguna ventana o compacta la RAM desde Configuración, en Memoria.',
+            'Cierra la aplicación que tengas abierta e inténtalo de nuevo.',
             'error'
           );
           return;
@@ -192,7 +197,7 @@ export const Desktop = () => {
           h,
           z: zRef.current,
           minimized: false,
-          maximized: true,
+          maximized: false,
           pendingRun: true,
         };
         setWindows((prev) => [...prev, win]);

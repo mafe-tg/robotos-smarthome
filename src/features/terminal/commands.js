@@ -17,7 +17,7 @@ const PRIORITY_BY_NAME = { critica: 'Crítica', crítica: 'Crítica', alta: 'Alt
 const PRIORITY_BY_NUM = { 1: 'Crítica', 2: 'Alta', 3: 'Media', 4: 'Baja' };
 
 /** Rol mínimo de cada comando. Los demás quedan disponibles para USER. */
-const ADMIN_COMMANDS = new Set(['boot', 'reboot', 'shutdown', 'run', 'kill', 'compact', 'write', 'rm']);
+const ADMIN_COMMANDS = new Set(['boot', 'reboot', 'shutdown', 'run', 'kill', 'write', 'rm']);
 
 export const COMMAND_HELP = [
   ['help', 'Muestra esta ayuda'],
@@ -39,7 +39,6 @@ export const COMMAND_HELP = [
   ['thread step', 'Ejecuta un turno Round Robin (quantum 2)'],
   ['thread run', 'Ejecuta turnos hasta terminar todos los hilos'],
   ['mem', 'Uso de memoria y bloques asignados'],
-  ['compact', 'Compacta la memoria (ADMIN)'],
   ['ls [carpeta]', 'Lista archivos del sistema de archivos virtual'],
   ['cat <ruta>', 'Muestra el contenido de un archivo'],
   ['write <ruta> <texto>', 'Crea un archivo (ADMIN)'],
@@ -53,13 +52,13 @@ export const COMMAND_HELP = [
   ['motor <actuador> <valor>', 'Mueve un actuador: rueda_izq, rueda_der, brazo, aspiradora'],
   ['move | stop', 'Pone en marcha o detiene los motores de RX-1'],
   ['diagnose', 'RX-1 revisa el sistema y sugiere arreglos'],
-  ['bench', 'Benchmark de Sofia: CPU, memoria virtual y tiempo real'],
+  ['bench', 'Compara el rendimiento del sistema'],
 ];
 
 export const COMMAND_NAMES = [
   'help', 'clear', 'whoami', 'boot', 'reboot', 'shutdown', 'status', 'syscalls', 'errors',
   'ps', 'run', 'admit', 'exec', 'pause', 'resume', 'kill', 'threads', 'thread',
-  'mem', 'compact', 'ls', 'cat', 'write', 'rm', 'devices', 'toggle', 'logs',
+  'mem', 'ls', 'cat', 'write', 'rm', 'devices', 'toggle', 'logs',
   'sensors', 'drivers', 'driver', 'motor', 'move', 'stop', 'diagnose', 'bench',
 ];
 
@@ -295,11 +294,6 @@ export async function runCommand(input, { role, user, checkPermission, addLog, o
         break;
       }
 
-      case 'compact': {
-        const res = await call('sys_compact');
-        out.push(line(res?.message || (res?.success ? 'Memoria compactada.' : 'No se pudo compactar.'), res?.success ? 'ok' : 'warn'));
-        break;
-      }
 
       case 'ls': {
         const files = await call('sys_ls');

@@ -11,6 +11,7 @@
   --os-blue: #2f6bff;
   --os-violet: #7b3cff;
   --os-pink: #ff4fd8;       /* chispa: selección y detalles */
+  --os-soft-pink: #f4d9e5;  /* acento decorativo muy discreto */
   --os-lilac: #eceaff;      /* panel claro del menú */
   --os-ok: #5fe3a1;
   --os-alert: #ff5c7a;
@@ -67,7 +68,8 @@
 
 /* Ventanas */
 .os-window {
-  background: var(--os-panel);
+  background-color: var(--os-panel);
+  background-image: radial-gradient(circle at 96% 0%, rgba(244, 217, 229, 0.075), transparent 26%);
   border: 1px solid var(--os-line);
   border-radius: 14px;
   box-shadow: 0 24px 60px rgba(8, 3, 30, 0.6);
@@ -136,7 +138,8 @@
   background-color: #ffffff;
   background-image:
     radial-gradient(circle at 92% 8%, rgba(47, 107, 255, 0.10), transparent 40%),
-    radial-gradient(circle at 6% 96%, rgba(123, 60, 255, 0.10), transparent 45%);
+    radial-gradient(circle at 6% 96%, rgba(123, 60, 255, 0.10), transparent 45%),
+    radial-gradient(circle at 96% 82%, rgba(244, 217, 229, 0.16), transparent 28%);
 }
 
 /* Apps propias en tema claro: los fondos translúcidos blancos pasan a lavanda */
@@ -146,3 +149,7 @@
 .os-applight .border-white\/10, .os-applight .border-white\/15 { border-color: #e4dffa; }
 .os-applight .bg-\[var\(--os-night\)\] { background-color: #ffffff; box-shadow: 0 8px 24px rgba(60, 40, 160, 0.06); }
 .os-applight .hover\:text-white:hover { color: var(--os-ink); }
+
+/* Detalles rosados muy suaves: conservan el azul y violeta como colores principales. */
+.os-light .os-window { border-color: color-mix(in srgb, var(--os-line) 88%, var(--os-soft-pink)); }
+.os-light .os-focus:focus-visible { outline-color: #e8bfd0; }

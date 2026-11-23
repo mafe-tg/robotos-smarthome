@@ -42,7 +42,6 @@ export const MemoryPage = () => {
   const {
     memoryBlocks,
     memoryStats,
-    compactMemory,
     freeMemoryBlock,
     vfsStats,
     vfsFiles,
@@ -56,7 +55,6 @@ export const MemoryPage = () => {
 
   const [activeFolderTab, setActiveFolderTab] = useState('ALL');
   const [selectedFile, setSelectedFile] = useState(null);
-  const [compactFeedback, setCompactFeedback] = useState(null);
 
   // Estados para CRUD de Archivos en VFS
   const [isCreating, setIsCreating] = useState(false);
@@ -95,28 +93,6 @@ export const MemoryPage = () => {
     });
     return Array.from(folders).sort();
   }, [vfsFiles]);
-
-  // Acción de compactar con comprobación de huecos
-  const handleCompact = () => {
-    if (!checkPermission('ADMIN', 'Compactación de memoria RAM física (compact)', addLog)) {
-      return;
-    }
-
-    const res = compactMemory();
-    if (res?.alreadyCompact) {
-      setCompactFeedback({
-        type: 'info',
-        message: res.message || 'No hay fragmentación, la memoria ya está compacta.',
-      });
-    } else if (res?.success) {
-      setCompactFeedback({
-        type: 'success',
-        message: res.message || 'Memoria compactada con éxito: fragmentación eliminada.',
-      });
-    }
-
-    setTimeout(() => setCompactFeedback(null), 4000);
-  };
 
   // Liberar bloque manualmente (exclusivo ADMIN)
   const handleFreeBlock = (block) => {
@@ -274,7 +250,7 @@ export const MemoryPage = () => {
             Memoria & Sistema de Archivos (VFS)
           </h2>
           <p className="text-xs text-slate-400">
-            Modelo operativo de Dana: asignación dinámica en 1024 KB de RAM (MemoryManager) y VirtualFileSystem con clips de vigilancia.
+            Administración del espacio de memoria y de los archivos del sistema.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -284,29 +260,7 @@ export const MemoryPage = () => {
         </div>
       </div>
 
-      {/* Banner de Aviso de Compactación si no hay huecos o éxito */}
-      {compactFeedback && (
-        <div
-          className={`p-3.5 rounded-xl text-xs font-mono flex items-center justify-between border transition-all ${
-            compactFeedback.type === 'info'
-              ? 'bg-amber-950/40 border-amber-500/50 text-amber-200'
-              : 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200'
-          }`}
-        >
-          <div className="flex items-center space-x-2">
-            <span>{compactFeedback.type === 'info' ? 'ℹ️' : '✅'}</span>
-            <span className="font-semibold">{compactFeedback.message}</span>
-          </div>
-          <button
-            onClick={() => setCompactFeedback(null)}
-            className="text-slate-400 hover:text-white text-xs font-bold px-1"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* Tarjetas de Métricas de Memoria de Dana */}
+      {/* Tarjetas de Métricas de Memoria */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
           <div className="text-[10px] font-mono uppercase text-slate-500">Capacidad Total</div>
@@ -335,12 +289,12 @@ export const MemoryPage = () => {
         </div>
       </div>
 
-      {/* 1. REPRESENTACIÓN VISUAL CONTINUA DE MEMORIA RAM (0 KB a 1024 KB) */}
+      {/* 1. REPRESENTACIÓN VISUAL DEL ESPACIO DE MEMORIA (0 KB a 1024 KB) */}
       <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-800/80 pb-3">
           <div>
             <h3 className="text-sm font-bold text-white tracking-wide">
-              Mapa Físico de Memoria (Espacio de Direcciones 0 a 1024 KB)
+              Mapa de memoria (0 a 1024 KB)
             </h3>
             <p className="text-xs text-slate-400">
               Visualización proporcional de particiones contiguas y huecos libres en tiempo real.
