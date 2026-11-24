@@ -45,6 +45,7 @@ import {
   getState,
   getMemoryState,
   getSyncState,
+  listProcesses,
   createProcess,
   createThread,
   runScheduler,
@@ -106,6 +107,8 @@ export const KernelPage = ({ onNavigate }) => {
       setKernelState(state);
       setMemoryState(getMemoryState());
       setSyncState(getSyncState());
+      // La tabla muestra el estado real de los procesos del kernel (NEW, READY, RUNNING, TERMINATED)
+      listProcesses().then(setDemoProcesses).catch(() => {});
     } catch {
       // Kernel apagado o no inicializado aún
     }
@@ -238,7 +241,7 @@ export const KernelPage = ({ onNavigate }) => {
     }
     try {
       // Acceder a una página del proceso 1
-      const pidTarget = demoProcesses[0]?.pid || 1;
+      const pidTarget = demoProcesses.find((proc) => proc.estado !== 'TERMINATED')?.pid || demoProcesses[0]?.pid || 1;
       const randomPage = Math.floor(Math.random() * 4);
       const res = await accessPage(pidTarget, randomPage);
       refreshTelemetry();
@@ -274,7 +277,7 @@ export const KernelPage = ({ onNavigate }) => {
     setActionLoading(true);
     try {
       // Asegurar proceso y dos hilos dedicados para la contención
-      let p = demoProcesses[0];
+      let p = demoProcesses.find((proc) => proc.estado !== 'TERMINATED');
       if (!p) {
         p = await createProcess({ nombre: 'Robot-Control', prioridad: 1, memoriaRequerida: 2, cpuRequerida: 10, tiempoTotal: 4 });
         setDemoProcesses((prev) => [...prev, p]);
@@ -637,10 +640,10 @@ export const KernelPage = ({ onNavigate }) => {
                         >
                           <span className="font-bold text-slate-200">{res.name}</span>
                           <span className="text-[10px] text-cyan-400">
-                            Dueño: {res.owner ? `TID ${res.owner}` : 'Libre'}
+                            Dueño: {res.holder ? `hilo-${res.holder}` : 'Libre'}
                           </span>
                           <span className="text-[10px] text-slate-500">
-                            Cola: {res.waitingQueue?.length || 0}
+                            Cola: {res.waiters?.length || 0}
                           </span>
                         </div>
                       ))
