@@ -246,6 +246,11 @@ export function resolveDeadlock() {
   return llamar("deadlock.resolve");
 }
 
+/** Lista de procesos leída directamente, sin system call (para refrescar pantallas sin generar eventos). */
+export function getProcessList() {
+  return processManager ? processManager.list() : [];
+}
+
 /** Estado de mutex, semáforos, canales IPC y deadlock. Es null si aún no se ha arrancado. */
 export function getSyncState() {
   return syncManager ? syncManager.getState() : null;
