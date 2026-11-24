@@ -45,7 +45,7 @@ import {
   getState,
   getMemoryState,
   getSyncState,
-  listProcesses,
+  getProcessList,
   createProcess,
   createThread,
   runScheduler,
@@ -97,7 +97,9 @@ export const KernelPage = ({ onNavigate }) => {
 
   // Auto-scroll del visor de eventos
   useEffect(() => {
-    eventEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Solo se desplaza el visor de eventos, no la ventana completa
+    const box = eventEndRef.current?.parentElement;
+    if (box) box.scrollTop = box.scrollHeight;
   }, [eventLogs]);
 
   // Actualizar telemetría periódica
@@ -108,7 +110,7 @@ export const KernelPage = ({ onNavigate }) => {
       setMemoryState(getMemoryState());
       setSyncState(getSyncState());
       // La tabla muestra el estado real de los procesos del kernel (NEW, READY, RUNNING, TERMINATED)
-      listProcesses().then(setDemoProcesses).catch(() => {});
+      setDemoProcesses(getProcessList());
     } catch {
       // Kernel apagado o no inicializado aún
     }
