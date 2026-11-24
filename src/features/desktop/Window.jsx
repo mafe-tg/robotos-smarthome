@@ -6,7 +6,7 @@ import React, { useRef } from 'react';
 import { Minus, Square, Copy, X } from 'lucide-react';
 
 const TOP_BAR = 56;
-const DOCK = 112;
+const DOCK = 88;
 const MIN_W = 420;
 const MIN_H = 280;
 

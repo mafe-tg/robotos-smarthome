@@ -76,6 +76,7 @@ export function deriveTwinState({
   systemSettings = {},
   batteryPercent = 84,
   cpuUsage = 28,
+  robotTargetRoom = null,
 }) {
   const rooms       = deriveRooms(processes, devices, alerts);
   const deviceStates = deriveDevices(devices, processes);
@@ -111,7 +112,7 @@ export function deriveTwinState({
   return {
     rooms,
     deviceStates,
-    robot: { ...robot, currentRoom: runningRoom, runningProcess },
+    robot: { ...robot, currentRoom: robotTargetRoom || runningRoom, runningProcess },
     globalAlerts: { hasCommLoss, hasUnauthorized, hasDeadlock, hasCpuOverload, hasMemoryCorruption, count: activeAlerts.length },
     summary: {
       algorithm: systemSettings.scheduler_algorithm || 'PRIORIDAD',

@@ -8,7 +8,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Lightbulb, Thermometer, Camera, Lock, LockOpen, Footprints, Zap, ShieldCheck, BatteryMedium, Cpu,
+  Lightbulb, Thermometer, Camera, Lock, LockOpen, Footprints, Zap, ShieldCheck, BatteryMedium, BatteryCharging, Cpu,
 } from 'lucide-react';
 import { useSystem } from '../../context/SystemContext';
 import { useAuth } from '../../context/AuthContext';
@@ -67,7 +67,7 @@ const deviceView = (d) => {
 };
 
 export function useTwinSnapshot() {
-  const { processes, devices, alerts, memoryStats, energyReport, metrics } = useSystem();
+  const { processes, devices, alerts, memoryStats, energyReport, metrics, robotTargetRoom } = useSystem();
   return useMemo(
     () =>
       deriveTwinState({
@@ -78,8 +78,9 @@ export function useTwinSnapshot() {
         energyReport,
         batteryPercent: metrics.batteryPercent,
         cpuUsage: metrics.cpuUsage,
+        robotTargetRoom,
       }),
-    [processes, devices, alerts, memoryStats, energyReport, metrics.batteryPercent, metrics.cpuUsage]
+    [processes, devices, alerts, memoryStats, energyReport, metrics.batteryPercent, metrics.cpuUsage, robotTargetRoom]
   );
 }
 
@@ -310,7 +311,7 @@ const Assistant = ({ twin, onSelectRoom }) => {
 /* ── Detalle de una habitación ── */
 const RoomPanel = ({ twin, roomId, onClose }) => {
   const toggle = useDeviceToggle();
-  const { devices } = useSystem();
+  const { devices, metrics, isCharging, chargeRobot, startCharging, stopCharging } = useSystem();
   const r = ROOMS[roomId];
   const state = twin.rooms[roomId] || { processes: [] };
   const roomDevices = devices.filter((d) => DEVICE_ROOM[d.id] === roomId);
@@ -332,6 +333,17 @@ const RoomPanel = ({ twin, roomId, onClose }) => {
           </button>
         )}
       </div>
+
+      {roomId !== 'base' && (
+        <button
+          type="button"
+          onClick={chargeRobot}
+          className="os-focus mt-4 w-full flex items-center justify-center gap-2 rounded-xl border border-[#ead8e2] bg-[#fff9fc] px-3 py-2.5 text-sm font-semibold text-[#927487] transition hover:bg-[#fdf1f6]"
+        >
+          <BatteryCharging className="h-4 w-4 text-[#e5bfd0]" />
+          Enviar RX-1 a la base de carga
+        </button>
+      )}
 
       <h3 className="mt-4 mb-2 text-sm font-semibold">Dispositivos</h3>
       {roomDevices.length === 0 ? (
@@ -365,6 +377,36 @@ const RoomPanel = ({ twin, roomId, onClose }) => {
             );
           })}
         </ul>
+      )}
+
+      {roomId === 'base' && (
+        <div className="mt-4 rounded-2xl border border-[#eee0e7] bg-gradient-to-br from-white via-white to-[#fffafd] p-4 shadow-[0_6px_18px_rgba(190,150,170,0.08)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <BatteryCharging className="h-4 w-4 text-[#e5bfd0]" />
+                Carga de RX-1
+              </div>
+              <p className="mt-1 text-xs text-[var(--os-mute)]">
+                {robotHere
+                  ? (isCharging ? 'Cargando poco a poco en la base…' : 'RX-1 está en la base. Puedes iniciar la carga cuando quieras.')
+                  : 'La carga estará disponible cuando RX-1 llegue a la base.'}
+              </p>
+            </div>
+            <span className="text-lg font-bold tabular-nums">{metrics.batteryPercent}%</span>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#f7eff3]">
+            <div className="h-full rounded-full bg-gradient-to-r from-[#f0dce6] to-[#e5bfd0] transition-all duration-500" style={{ width: `${metrics.batteryPercent}%` }} />
+          </div>
+          <button
+            type="button"
+            disabled={!robotHere || (!isCharging && metrics.batteryPercent >= 100)}
+            onClick={isCharging ? stopCharging : startCharging}
+            className="os-focus mt-3 w-full rounded-xl border border-[#ead8e2] bg-white px-3 py-2 text-sm font-semibold text-[#927487] transition hover:bg-[#fff7fa] disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {isCharging ? 'Detener carga' : metrics.batteryPercent >= 100 ? 'Batería completa' : 'Iniciar carga'}
+          </button>
+        </div>
       )}
 
       <h3 className="mt-4 mb-2 text-sm font-semibold">Tareas del robot aquí</h3>
@@ -401,20 +443,20 @@ const Summary = () => {
     { icon: Lightbulb, label: 'Luces', value: lights ? `${lights} encendida${lights > 1 ? 's' : ''}` : 'Apagadas' },
     { icon: BatteryMedium, label: 'Batería de RX-1', value: `${metrics.batteryPercent} %`, warn: metrics.batteryPercent < 25 },
   ];
-  if (role !== 'GUEST') items.push({ icon: Cpu, label: 'Sistema', value: `CPU ${metrics.cpuUsage} %, ${online}/${devices.length} equipos` });
+  if (role !== 'GUEST') items.push({ icon: Cpu, label: 'Sistema CPU', value: `CPU ${metrics.cpuUsage} % · ${online}/${devices.length} equipos`, stable: true });
 
   return (
     <ul className="flex flex-wrap gap-2" aria-label="Resumen de la casa">
       {items.map((it) => {
         const Icon = it.icon;
         return (
-          <li key={it.label} className="flex items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-white border border-[var(--os-line)] shadow-[0_4px_14px_rgba(60,40,160,0.06)]">
+          <li key={it.label} className={`flex items-center gap-2.5 pl-2 pr-4 py-2 rounded-full bg-white border border-[var(--os-line)] shadow-[0_4px_14px_rgba(60,40,160,0.06)] ${it.stable ? 'w-[240px] shrink-0' : ''}`}>
             <span className={`w-8 h-8 rounded-full grid place-items-center ${it.warn ? 'bg-[var(--os-alert)] text-white' : 'bg-[var(--os-panel-2)] text-[var(--os-signal)]'}`}>
               <Icon className="w-4 h-4" />
             </span>
             <span className="leading-tight">
               <span className="block text-[11px] text-[var(--os-mute)]">{it.label}</span>
-              <span className="block text-sm font-semibold">{it.value}</span>
+              <span className={`block text-sm font-semibold ${it.stable ? 'whitespace-nowrap tabular-nums' : ''}`}>{it.value}</span>
             </span>
           </li>
         );

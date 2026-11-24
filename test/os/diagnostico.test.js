@@ -42,6 +42,14 @@ test('detecta fragmentación y propone compactar', () => {
   assert.equal(f.action.type, 'compact');
 });
 
+test('un uso normal de memoria no se reporta como RAM llena', () => {
+  const r = diagnose({
+    ...healthy(),
+    memoryStats: { totalKb: 1024, usedKb: 800, freeKb: 224 },
+  });
+  assert.ok(!r.findings.some((f) => f.id === 'ram-full' || f.id === 'ram-high'));
+});
+
 test('un driver caído aparece como crítico con la acción de reiniciarlo', () => {
   const hw = new HardwareManager({ random: () => 0.5 });
   hw.failDriver('drv_motores');

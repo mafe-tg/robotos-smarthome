@@ -53,7 +53,7 @@ export const COMMAND_HELP = [
   ['motor <actuador> <valor>', 'Mueve un actuador: rueda_izq, rueda_der, brazo, aspiradora'],
   ['move | stop', 'Pone en marcha o detiene los motores de RX-1'],
   ['diagnose', 'RX-1 revisa el sistema y sugiere arreglos'],
-  ['bench', 'Benchmark de Sofia: CPU, memoria virtual y tiempo real'],
+  ['bench', 'Compara el rendimiento del sistema'],
 ];
 
 export const COMMAND_NAMES = [

@@ -55,6 +55,8 @@ export const SettingsApp = () => {
     notify?.(r?.alreadyCompact ? 'La memoria ya estaba compacta' : 'Memoria compactada', r?.message || '', r?.alreadyCompact ? 'info' : 'ok');
   };
 
+
+
   return (
     <div className="h-full flex flex-col sm:flex-row os-light os-applight bg-[#f7f6ff] text-[var(--os-ink)]" style={{ fontFamily: 'var(--os-font)' }}>
       <nav className="flex sm:block gap-1 overflow-x-auto sm:w-44 shrink-0 p-2 border-b sm:border-b-0 sm:border-r border-[var(--os-line)]" aria-label="Secciones">

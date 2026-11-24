@@ -1,13 +1,12 @@
 /**
- * KernelPage.jsx — Centro de Control del Kernel & Benchmark Center (Fases 6 y 7).
+ * KernelPage.jsx — Centro de Control del Kernel & Pruebas de rendimiento (Fases 6 y 7).
  *
- * Desarrollado por: Sofia (Integrante 1 - Kernel & Resource Management)
  *
  * Módulos integrados:
  *  - Pestaña 1 (Kernel Debugger): Telemetría en vivo, 8 marcos de RAM física,
  *    tabla de procesos e hilos, panel de sincronización con detección de Deadlock,
  *    y streaming de eventos { tipo, origen, detalle, fecha }.
- *  - Pestaña 2 (Benchmark Center): Comparativas cuantitativas con métricas reales:
+ *  - Pestaña 2 (Pruebas de rendimiento): Comparativas cuantitativas con métricas reales:
  *    * CPU: Prioridad vs Round Robin (espera, retorno, respuesta y cambios de contexto).
  *    * Memoria: FIFO vs LRU (análisis de la Anomalía de Belády).
  *    * RTOS: EDF vs Rate Monotonic (plazos cumplidos vs perdidos).
@@ -97,7 +96,7 @@ export const KernelPage = ({ onNavigate }) => {
   const [activeAlgorithm, setActiveAlgorithm] = useState('FIFO');
   const [deadlockInfo, setDeadlockInfo] = useState({ hasDeadlock: false, cycle: [] });
 
-  // Estado del Benchmark Center
+  // Estado del Pruebas de rendimiento
   const [benchmarkLoading, setBenchmarkLoading] = useState(false);
   const [benchmarkSuite, setBenchmarkSuite] = useState(null);
   const [selectedSubBenchmark, setSelectedSubBenchmark] = useState('all');
@@ -384,13 +383,13 @@ export const KernelPage = ({ onNavigate }) => {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                Kernel Debugger & Benchmark Center
+                Kernel Debugger & Pruebas de rendimiento
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800">
                   Core v1.0
                 </span>
               </h1>
               <p className="text-xs text-slate-400">
-                Subsistema de Bajo Nivel · Sofia (Integrante 1)
+                Subsistema de Bajo Nivel · Gestión de Recursos y Núcleo
               </p>
             </div>
           </div>
@@ -421,7 +420,7 @@ export const KernelPage = ({ onNavigate }) => {
             }`}
           >
             <BarChart3 className="w-4 h-4" />
-            <span>Benchmark Center</span>
+            <span>Pruebas de rendimiento</span>
           </button>
         </div>
       </div>

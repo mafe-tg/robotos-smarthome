@@ -7,6 +7,7 @@ import { AlertOctagon, AlertTriangle, Info, CheckCircle2, RefreshCw } from 'luci
 import { emitSystemEvent } from '../../../lib/persistence';
 import { useDiagnosis } from '../../diagnostics/useDiagnosis';
 import { RobotMascot } from '../RobotMascot';
+import { useDesktop } from '../DesktopContext';
 
 const SEV = {
   critical: { icon: AlertOctagon, cls: 'text-[var(--os-alert)]', label: 'Crítico' },
@@ -41,6 +42,7 @@ const ScoreRing = ({ score, level }) => {
 
 export const DiagnosticsApp = () => {
   const { result, run } = useDiagnosis();
+  const desktop = useDesktop();
   const [scanning, setScanning] = useState(false);
 
   const scan = () => {
@@ -75,6 +77,9 @@ export const DiagnosticsApp = () => {
           <p className="mt-1 text-sm text-[var(--os-mute)]">Revisé: {result.checked.join(', ')}.</p>
           <button onClick={scan} disabled={scanning} className="os-focus mt-3 h-9 px-4 rounded-full bg-white text-[#2a17a8] text-sm font-semibold flex items-center gap-2 disabled:opacity-60">
             <RefreshCw className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} /> Volver a revisar
+          </button>
+          <button onClick={() => desktop.openApp?.('monitor')} className="os-focus mt-3 ml-2 h-9 px-4 rounded-full bg-[var(--os-signal)] text-[var(--os-on-signal)] text-sm font-semibold inline-flex items-center gap-2">
+            Abrir monitor del sistema →
           </button>
         </div>
         <ScoreRing score={result.score} level={result.level} />

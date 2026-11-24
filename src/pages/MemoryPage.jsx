@@ -274,7 +274,7 @@ export const MemoryPage = () => {
             Memoria & Sistema de Archivos (VFS)
           </h2>
           <p className="text-xs text-slate-400">
-            Modelo operativo de Dana: asignación dinámica en 1024 KB de RAM (MemoryManager) y VirtualFileSystem con clips de vigilancia.
+            Administración del espacio de memoria y de los archivos del sistema.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -314,7 +314,7 @@ export const MemoryPage = () => {
         </div>
       )}
 
-      {/* Tarjetas de Métricas de Memoria de Dana */}
+      {/* Tarjetas de Métricas de Memoria */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
           <div className="text-[10px] font-mono uppercase text-slate-500">Capacidad Total</div>
@@ -343,12 +343,12 @@ export const MemoryPage = () => {
         </div>
       </div>
 
-      {/* 1. REPRESENTACIÓN VISUAL CONTINUA DE MEMORIA RAM (0 KB a 1024 KB) */}
+      {/* 1. REPRESENTACIÓN VISUAL DEL ESPACIO DE MEMORIA (0 KB a 1024 KB) */}
       <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-800/80 pb-3">
           <div>
             <h3 className="text-sm font-bold text-white tracking-wide">
-              Mapa Físico de Memoria RAM (Espacio de Direcciones 0 a 1024 KB)
+              Mapa de memoria (0 a 1024 KB)
             </h3>
             <p className="text-xs text-slate-400">
               Visualización proporcional de particiones contiguas y huecos libres en tiempo real.

@@ -110,7 +110,7 @@ export const OverviewPage = ({ onNavigate }) => {
             />
 
             <MetricCard
-              title="Memoria RAM (Dana)"
+              title="Memoria RAM"
               value={`${metrics.ramUsageKB} KB`}
               subValue={`de ${metrics.ramTotalKB} KB`}
               percentage={metrics.ramTotalKB ? Math.round((metrics.ramUsageKB / metrics.ramTotalKB) * 100) : 0}

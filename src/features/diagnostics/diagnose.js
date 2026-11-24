@@ -77,7 +77,7 @@ export function diagnose(s) {
   const mem = s.memoryStats || {};
   const usage = mem.totalKb ? (mem.usedKb / mem.totalKb) * 100 : 0;
   const holes = countMemoryHoles(s.memoryBlocks, mem.totalKb);
-  if (usage >= 90) {
+  if (usage >= 95) {
     add({
       id: 'ram-full',
       severity: SEVERITY.CRITICAL,
@@ -86,7 +86,7 @@ export function diagnose(s) {
       detail: `Quedan ${mem.freeKb} KB. Un proceso nuevo puede no tener dónde cargarse. Cierra apps que no uses.`,
       action: { type: 'open_app', label: 'Ver procesos en el monitor', payload: 'monitor' },
     });
-  } else if (usage >= 80) {
+  } else if (usage >= 88) {
     add({
       id: 'ram-high',
       severity: SEVERITY.WARNING,

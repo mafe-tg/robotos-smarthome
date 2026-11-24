@@ -86,3 +86,16 @@ test('los eventos salen por el EventEngine del kernel con el formato común', ()
   assert.deepEqual(Object.keys(ev).sort(), ['detalle', 'fecha', 'origen', 'tipo']);
   assert.equal(ev.origen, 'HARDWARE_MGR');
 });
+
+
+test('un obstáculo a menos de 20 cm detiene las ruedas a cualquier velocidad mayor que 0', () => {
+  const hw = new HardwareManager({ random: () => 0.5 });
+  hw.setActuator('rueda_izq', 50);
+  hw.setActuator('rueda_der', 50);
+  hw.sensors.get('lidar').value = 15;
+  hw.tick();
+  const snap = hw.snapshot();
+  assert.equal(snap.moving, false);
+  assert.equal(snap.actuators.find((a) => a.id === 'rueda_izq').value, 0);
+  assert.equal(snap.actuators.find((a) => a.id === 'rueda_der').value, 0);
+});

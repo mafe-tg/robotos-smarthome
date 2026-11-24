@@ -74,6 +74,11 @@ export const HardwareApp = () => {
           <p className="text-sm text-[var(--os-mute)]">
             {snap.drivers.filter((d) => d.status === 'ACTIVE').length} de {snap.drivers.length} drivers activos. Ciclo del bus número {snap.ticks}.
           </p>
+          {snap.obstacleBlocked && (
+            <p className="mt-1 text-xs font-medium text-amber-600">
+              Movimiento pausado por proximidad a un obstáculo. Reduce la velocidad por debajo del 80 % desde los controles para continuar.
+            </p>
+          )}
         </div>
         <button onClick={() => call('USER', 'Mover el robot', 'sys_move', 60)} className={`${btn} bg-white text-[#2a17a8] font-semibold`}>
           <Move className="w-4 h-4" /> Mover
